@@ -10,6 +10,7 @@ import greetingRoutes from './routes/greetingRoutes.js';
 import testRoutes from './routes/testRoutes.js';
 import sociosRoutes from './routes/sociosRoutes.js';
 import ventasRoutes from './routes/ventasRoutes.js';
+import membershipRoutes from './routes/membershipRoutes.js';
 
 /**
  * Cargar variables de entorno al inicio
@@ -37,6 +38,7 @@ app.use('/api', greetingRoutes);
 app.use('/api', testRoutes);
 app.use('/api', sociosRoutes);
 app.use('/api', ventasRoutes);
+app.use('/api', membershipRoutes);
 
 const PORT = process.env.PORT || 3000;
 
