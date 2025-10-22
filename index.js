@@ -9,6 +9,7 @@ import morgan from 'morgan';
 import greetingRoutes from './routes/greetingRoutes.js';
 import testRoutes from './routes/testRoutes.js';
 import sociosRoutes from './routes/sociosRoutes.js';
+import ventasRoutes from './routes/ventasRoutes.js';
 
 /**
  * Cargar variables de entorno al inicio
@@ -35,6 +36,7 @@ app.use(express.json());
 app.use('/api', greetingRoutes);
 app.use('/api', testRoutes);
 app.use('/api', sociosRoutes);
+app.use('/api', ventasRoutes);
 
 const PORT = process.env.PORT || 3000;
 
