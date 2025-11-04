@@ -82,7 +82,7 @@ npm start
 - [ ] Implementar verificación de email
 
 ### Socios 🏋️‍♂️
-- [ ] Implementar creación de socios
+- [x] Implementar creación de socios
 - [ ] Implementar actualización de socios
 - [ ] Implementar eliminación de socios
 - [ ] Integrar con tabla de Supabase
@@ -91,7 +91,7 @@ npm start
 - [ ] Implementar paginación
 
 ### Membresías 💳
-- [ ] Implementar creación de membresías
+- [x] Implementar creación de membresías
 - [ ] Implementar actualización de membresías
 - [ ] Implementar eliminación de membresías
 - [ ] Integrar con tabla de Supabase
@@ -100,13 +100,16 @@ npm start
 - [ ] Implementar beneficios por membresía
 
 ### Ventas 💰
-- [ ] Implementar creación de ventas
+- [x] Implementar creación de ventas
 - [ ] Implementar actualización de ventas
 - [ ] Implementar eliminación de ventas
 - [ ] Integrar con tabla de Supabase
 - [ ] Implementar sistema de inventario
 - [ ] Implementar registro de transacciones
 - [ ] Implementar reportes de ventas
+
+### Inventario 📦
+- [x] Implementar registro de productos
 
 ### Seguridad 🔒
 - [ ] Implementar middleware de autenticación
