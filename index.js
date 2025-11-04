@@ -11,6 +11,7 @@ import testRoutes from './routes/testRoutes.js';
 import sociosRoutes from './routes/sociosRoutes.js';
 import ventasRoutes from './routes/ventasRoutes.js';
 import membershipRoutes from './routes/membershipRoutes.js';
+import inventarioRoutes from './routes/inventarioRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 
 /**
@@ -40,6 +41,7 @@ app.use('/api', testRoutes);
 app.use('/api', sociosRoutes);
 app.use('/api', ventasRoutes);
 app.use('/api', membershipRoutes);
+app.use('/api', inventarioRoutes);
 app.use('/api', authRoutes);
 
 const PORT = process.env.PORT || 3000;
