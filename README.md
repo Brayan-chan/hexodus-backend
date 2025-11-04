@@ -50,26 +50,210 @@ npm run dev
 npm start
 ```
 
-## Endpoints Implementados
+## 📋 Endpoints y Ejemplos de Uso
 
-### Autenticación
-- `POST /api/auth/signup` - Registro de usuarios
-- `POST /api/auth/signin` - Inicio de sesión
-- `POST /api/auth/signout` - Cierre de sesión
-- `GET /api/auth/user` - Obtener información del usuario actual
+### 🔐 Autenticación
 
-### Socios
-- `GET /api/socios` - Obtener lista de socios
+#### Crear Cuenta (POST /api/auth/signup)
+```bash
+curl -X POST http://localhost:3000/api/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "usuario@ejemplo.com",
+    "password": "contraseña123",
+    "first_name": "Primer",
+    "last_name": "Apellido"
+  }'
+```
 
-### Membresías
-- `GET /api/membresias` - Obtener lista de membresías
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "Cuenta creada exitosamente",
+  "data": {
+    "user": {
+      "id": "user-uuid",
+      "email": "usuario@ejemplo.com",
+      "role": "authenticated"
+    }
+  }
+}
+```
 
-### Ventas
-- `GET /api/ventas` - Obtener lista de ventas
+#### Iniciar Sesión (POST /api/auth/signin)
+```bash
+curl -X POST http://localhost:3000/api/auth/signin \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "usuario@ejemplo.com",
+    "password": "contraseña123"
+  }'
+```
 
-### Sistema
-- `GET /api/greeting` - Mensaje de bienvenida
-- `GET /api/test-connection` - Prueba de conexión a Supabase
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "Inicio de sesión exitoso",
+  "data": {
+    "user": {
+      "id": "user-uuid",
+      "email": "usuario@ejemplo.com",
+      "role": "authenticated"
+    },
+    "session": {
+      "access_token": "tu-token-jwt",
+      "expires_at": 1762224463
+    }
+  }
+}
+```
+
+#### Cerrar Sesión (POST /api/auth/signout)
+```bash
+curl -X POST http://localhost:3000/api/auth/signout \
+  -H "Authorization: Bearer tu-token-jwt"
+```
+
+### 👥 Socios
+
+#### Obtener Lista de Socios (GET /api/socios)
+```bash
+curl -X GET http://localhost:3000/api/socios \
+  -H "Authorization: Bearer tu-token-jwt"
+```
+
+#### Crear Nuevo Socio (POST /api/socios)
+```bash
+curl -X POST http://localhost:3000/api/socios \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer tu-token-jwt" \
+  -d '{
+    "nombre": "Juan",
+    "apellidos": "Pérez González",
+    "status_membership": "activo"
+  }'
+```
+
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "Socio creado exitosamente",
+  "data": {
+    "id": "uuid-del-socio",
+    "nombre": "Juan",
+    "apellidos": "Pérez González",
+    "status_membership": "activo",
+    "fecha_creacion": "2025-11-03T19:57:10.999Z",
+    "user_id": "uuid-del-usuario"
+  }
+}
+```
+
+### 💰 Ventas
+
+#### Obtener Lista de Ventas (GET /api/ventas)
+```bash
+curl -X GET http://localhost:3000/api/ventas \
+  -H "Authorization: Bearer tu-token-jwt"
+```
+
+#### Crear Nueva Venta (POST /api/ventas)
+```bash
+curl -X POST http://localhost:3000/api/ventas \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer tu-token-jwt" \
+  -d '{
+    "producto": "Membresía Mensual",
+    "cantidad": 1,
+    "precio": 500
+  }'
+```
+
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "Venta registrada exitosamente",
+  "data": {
+    "id": "uuid-de-la-venta",
+    "producto": "Membresía Mensual",
+    "cantidad": 1,
+    "precio": 500,
+    "fecha_venta": "2025-11-03T19:58:34.027Z",
+    "user_id": "uuid-del-usuario"
+  }
+}
+```
+
+### 📦 Inventario
+
+#### Crear Nuevo Producto (POST /api/inventario)
+```bash
+curl -X POST http://localhost:3000/api/inventario \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer tu-token-jwt" \
+  -d '{
+    "nombre": "Proteína Whey",
+    "stock": 50,
+    "precio": 799.99,
+    "tipo": "Suplemento",
+    "proveedor": "MyProtein",
+    "duración": 365
+  }'
+```
+
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "Producto registrado exitosamente",
+  "data": {
+    "id": "uuid-del-producto",
+    "nombre": "Proteína Whey",
+    "stock": 50,
+    "precio": 799.99,
+    "tipo": "Suplemento",
+    "proveedor": "MyProtein",
+    "duración": 365,
+    "fecha_creacion": "2025-11-04T01:48:13.003Z",
+    "user_id": "uuid-del-usuario"
+  }
+}
+```
+
+### 🔄 Sistema
+
+#### Mensaje de Bienvenida (GET /api/greeting)
+```bash
+curl -X GET http://localhost:3000/api/greeting
+```
+
+#### Prueba de Conexión (GET /api/test-connection)
+```bash
+curl -X GET http://localhost:3000/api/test-connection \
+  -H "Authorization: Bearer tu-token-jwt"
+```
+
+## Headers Requeridos
+
+Para rutas protegidas:
+```
+Authorization: Bearer tu-token-jwt
+Content-Type: application/json
+```
+
+## Códigos de Respuesta
+
+- 200: Operación exitosa
+- 201: Recurso creado exitosamente
+- 400: Error en la solicitud
+- 401: No autorizado
+- 403: Prohibido
+- 404: Recurso no encontrado
+- 500: Error interno del servidor
 
 ## TODO List
 
