@@ -275,16 +275,39 @@ export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { error } = await supabase
+    // Primero obtener el id_auth del usuario para eliminarlo de auth.users
+    const { data: usuario, error: getUserError } = await supabaseAdmin
+      .from('usuarios')
+      .select('id_auth')
+      .eq('id', id)
+      .single();
+
+    if (getUserError) {
+      throw new Error(`Usuario no encontrado: ${getUserError.message}`);
+    }
+
+    // Eliminar de auth.users usando el admin client
+    if (usuario.id_auth) {
+      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(usuario.id_auth);
+      if (authError) {
+        console.error('[Delete Auth User Error]', authError.message);
+        throw new Error(`Error eliminando de auth: ${authError.message}`);
+      }
+    }
+
+    // Eliminar de la tabla usuarios
+    const { error: deleteError } = await supabaseAdmin
       .from('usuarios')
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (deleteError) {
+      throw new Error(`Error eliminando de usuarios: ${deleteError.message}`);
+    }
 
     res.json({
       success: true,
-      message: 'Usuario eliminado correctamente'
+      message: 'Usuario eliminado completamente de auth y tabla usuarios'
     });
   } catch (error) {
     console.error('[Delete User Error]', error.message);
