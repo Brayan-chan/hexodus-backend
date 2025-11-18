@@ -1,51 +1,76 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import morgan from 'morgan';
 
-/**
- * Importamos las rutas
- */
-import greetingRoutes from './routes/greetingRoutes.js';
-import testRoutes from './routes/testRoutes.js';
-import sociosRoutes from './routes/sociosRoutes.js';
-import ventasRoutes from './routes/ventasRoutes.js';
-import membershipRoutes from './routes/membershipRoutes.js';
-import inventarioRoutes from './routes/inventarioRoutes.js';
+// Import routes
 import authRoutes from './routes/authRoutes.js';
+import sociosRoutes from './routes/sociosRoutes.js';
+import membershipsRoutes from './routes/membershipsRoutes.js';
+import productsRoutes from './routes/productsRoutes.js';
+import salesRoutes from './routes/salesRoutes.js';
+import inventoryRoutes from './routes/inventoryRoutes.js';
+import rolesRoutes from './routes/rolesRoutes.js';
+import movementsRoutes from './routes/movementsRoutes.js';
+import reportsRoutes from './routes/reportsRoutes.js';
 
-/**
- * Cargar variables de entorno al inicio
- */
+// Import middleware
+import { errorHandler } from './middleware/auth.js';
+
+// Load environment variables
 dotenv.config();
 
-/**
- * Verificar que las variables de entorno necesarias estén definidas
- */
-if (!process.env.SUPABASE_KEY) {
-  console.error('Error: SUPABASE_KEY no está definida en el archivo .env');
-  process.exit(1);
-}
-
 const app = express();
+const PORT = process.env.PORT || 3001;
 
-app.use(cors());
-app.use(morgan('dev'));
+// Middleware
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5500',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-/**
- * Definimos las rutas a usar
- */
-app.use('/api', greetingRoutes);
-app.use('/api', testRoutes);
-app.use('/api', sociosRoutes);
-app.use('/api', ventasRoutes);
-app.use('/api', membershipRoutes);
-app.use('/api', inventarioRoutes);
-app.use('/api', authRoutes);
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
 
-const PORT = process.env.PORT || 3000;
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/socios', sociosRoutes);
+app.use('/api/memberships', membershipsRoutes);
+app.use('/api/products', productsRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/roles', rolesRoutes);
+app.use('/api/movements', movementsRoutes);
+app.use('/api/reports', reportsRoutes);
 
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Ruta no encontrada',
+    path: req.path,
+    code: 'NOT_FOUND'
+  });
+});
+
+// Error handler
+app.use(errorHandler);
+
+// Start server
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`🚀 Gym Management Backend running on port ${PORT}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5500'}`);
 });
