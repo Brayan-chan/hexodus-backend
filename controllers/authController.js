@@ -5,7 +5,8 @@ import { z } from 'zod';
 const signUpSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Contraseña debe tener al menos 6 caracteres'),
-  fullName: z.string().min(2, 'Nombre requerido')
+  fullName: z.string().min(2, 'Nombre requerido'),
+  telefono: z.string().optional().nullable()
 });
 
 const signInSchema = z.object({
@@ -15,7 +16,7 @@ const signInSchema = z.object({
 
 export const signUp = async (req, res) => {
   try {
-    const { email, password, fullName } = signUpSchema.parse(req.body);
+    const { email, password, fullName, telefono } = signUpSchema.parse(req.body);
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -35,7 +36,9 @@ export const signUp = async (req, res) => {
           id_auth: data.user.id,
           email: data.user.email,
           nombre_completo: fullName,
-          rol: 'admin' // Rol por defecto
+          telefono: telefono || null,
+          rol: 'admin', // Rol por defecto
+          status: 'activo' // Estado por defecto
         });
 
       if (userError) {
@@ -234,14 +237,15 @@ export const getAllUsers = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre_completo, rol, status } = req.body;
+    const { nombre_completo, telefono, rol, status } = req.body;
 
     const updateData = {};
-    if (nombre_completo) updateData.nombre_completo = nombre_completo;
+    if (nombre_completo !== undefined) updateData.nombre_completo = nombre_completo;
+    if (telefono !== undefined) updateData.telefono = telefono || null;
     if (rol) updateData.rol = rol;
     if (status) updateData.status = status;
 
-    const { data: usuario, error } = await supabase
+    const { data: usuario, error } = await supabaseAdmin
       .from('usuarios')
       .update(updateData)
       .eq('id', id)
