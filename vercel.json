@@ -11,5 +11,8 @@
       "src": "/(.*)",
       "dest": "index.js"
     }
-  ]
+  ],
+  "env": {
+    "FRONTEND_URL": "https://hexodus-project.vercel.app"
+  }
 }
