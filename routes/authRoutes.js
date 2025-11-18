@@ -15,4 +15,55 @@ router.get('/users', verifyAuth, authController.getAllUsers);
 router.put('/users/:id', verifyAuth, authController.updateUser);
 router.delete('/users/:id', verifyAuth, authController.deleteUser);
 
+// Endpoint de prueba (temporal) - SIN autenticación
+router.get('/users-test', async (req, res) => {
+  try {
+    console.log('[Users Test] Starting...');
+    const { supabaseAdmin } = await import('../config/supabase-config.js');
+    
+    const { data, error } = await supabaseAdmin
+      .from('usuarios')
+      .select('*')
+      .limit(5);
+    
+    console.log('[Users Test] Result:', { count: data?.length, error });
+    
+    res.json({
+      success: true,
+      message: 'Test endpoint - usuarios',
+      data: data,
+      error: error
+    });
+  } catch (err) {
+    console.error('[Users Test] Error:', err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      stack: err.stack
+    });
+  }
+});
+
+// Endpoint de prueba (temporal)
+router.get('/test-db', verifyAuth, async (req, res) => {
+  try {
+    const { supabase } = await import('../config/supabase-config.js');
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('count(*)');
+    
+    res.json({
+      success: true,
+      message: 'Conexión a DB exitosa',
+      count: data,
+      error: error
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
 export default router;
