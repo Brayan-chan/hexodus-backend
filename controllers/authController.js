@@ -6,7 +6,8 @@ const signUpSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Contraseña debe tener al menos 6 caracteres'),
   fullName: z.string().min(2, 'Nombre requerido'),
-  telefono: z.string().optional().nullable()
+  telefono: z.string().optional().nullable(),
+  rol: z.string().optional()
 });
 
 const signInSchema = z.object({
@@ -16,7 +17,7 @@ const signInSchema = z.object({
 
 export const signUp = async (req, res) => {
   try {
-    const { email, password, fullName, telefono } = signUpSchema.parse(req.body);
+    const { email, password, fullName, telefono, rol } = signUpSchema.parse(req.body);
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -37,13 +38,14 @@ export const signUp = async (req, res) => {
           email: data.user.email,
           nombre_completo: fullName,
           telefono: telefono || null,
-          rol: 'admin', // Rol por defecto
-          status: 'activo' // Estado por defecto
+          rol: rol || 'usuario' // Usar el rol del frontend o 'usuario' por defecto
         });
 
       if (userError) {
         console.error('[User Insert Error]', userError.message);
-        // No fallo aquí porque el usuario de auth ya existe
+        // El usuario de auth ya existe, pero falló insertar en usuarios
+        // Podrías decidir si esto es crítico o no
+        throw new Error(`Usuario creado en auth pero falló insertar en tabla usuarios: ${userError.message}`);
       }
     }
 
