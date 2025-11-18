@@ -171,6 +171,95 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
+export const getAllUsers = async (req, res) => {
+  try {
+    const { status, rol } = req.query;
+
+    let query = supabase
+      .from('usuarios')
+      .select('*');
+
+    if (status) query = query.eq('status', status);
+    if (rol) query = query.eq('rol', rol);
+
+    const { data: usuarios, error } = await query
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: { usuarios }
+    });
+  } catch (error) {
+    console.error('[Get All Users Error]', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener usuarios',
+      code: 'GET_USERS_ERROR'
+    });
+  }
+};
+
+export const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre_completo, rol, status } = req.body;
+
+    const updateData = {};
+    if (nombre_completo) updateData.nombre_completo = nombre_completo;
+    if (rol) updateData.rol = rol;
+    if (status) updateData.status = status;
+
+    const { data: usuario, error } = await supabase
+      .from('usuarios')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: { usuario },
+      message: 'Usuario actualizado correctamente'
+    });
+  } catch (error) {
+    console.error('[Update User Error]', error.message);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Error al actualizar usuario',
+      code: 'UPDATE_USER_ERROR'
+    });
+  }
+};
+
+export const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('usuarios')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Usuario eliminado correctamente'
+    });
+  } catch (error) {
+    console.error('[Delete User Error]', error.message);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Error al eliminar usuario',
+      code: 'DELETE_USER_ERROR'
+    });
+  }
+};
+
 export const logout = async (req, res) => {
   try {
     const { error } = await supabase.auth.signOut();
