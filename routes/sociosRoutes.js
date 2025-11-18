@@ -1,12 +1,17 @@
 import express from 'express';
-import { getSocios, createSocio } from '../controllers/sociosController.js';
+import * as sociosController from '../controllers/sociosController.js';
+import { verifyAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Obtener todos los socios
-router.get('/socios', getSocios);
+router.use(verifyAuth);
 
-// Crear un nuevo socio
-router.post('/socios', createSocio);
+router.post('/', sociosController.createSocio);
+router.get('/', sociosController.getSocios);
+router.get('/:id', sociosController.getSocioById);
+router.put('/:id', sociosController.updateSocio);
+router.delete('/:id', sociosController.deleteSocio);
+router.patch('/:id/disable', sociosController.disableSocio);
+router.patch('/:id/enable', sociosController.enableSocio);
 
 export default router;
