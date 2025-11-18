@@ -10,4 +10,9 @@ router.post('/refresh', authController.refreshToken);
 router.get('/me', verifyAuth, authController.getCurrentUser);
 router.post('/logout', verifyAuth, authController.logout);
 
+// Rutas para gestión de usuarios
+router.get('/users', verifyAuth, authController.getAllUsers);
+router.put('/users/:id', verifyAuth, authController.updateUser);
+router.delete('/users/:id', verifyAuth, authController.deleteUser);
+
 export default router;
