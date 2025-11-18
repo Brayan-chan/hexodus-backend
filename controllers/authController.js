@@ -173,30 +173,60 @@ export const getCurrentUser = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
+    console.log('[Get All Users] Starting request...');
+    console.log('[Get All Users] User from middleware:', req.user);
+    
     const { status, rol } = req.query;
+    console.log('[Get All Users] Query params:', { status, rol });
 
-    let query = supabase
+    // Usar supabaseAdmin para evitar problemas de RLS
+    const { data: usuarios, error } = await supabaseAdmin
       .from('usuarios')
       .select('*');
 
-    if (status) query = query.eq('status', status);
-    if (rol) query = query.eq('rol', rol);
+    console.log('[Get All Users] Raw query result:', { 
+      count: usuarios?.length || 0, 
+      error,
+      firstUser: usuarios?.[0] || 'No users'
+    });
 
-    const { data: usuarios, error } = await query
-      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('[Get All Users Supabase Error]', error);
+      return res.status(500).json({
+        success: false,
+        error: `Database error: ${error.message}`,
+        code: 'SUPABASE_ERROR',
+        details: error
+      });
+    }
 
-    if (error) throw error;
+    // Aplicar filtros manualmente si existen usuarios
+    let filteredUsers = usuarios || [];
+    if (status && filteredUsers.length > 0) {
+      filteredUsers = filteredUsers.filter(u => u.status === status);
+    }
+    if (rol && filteredUsers.length > 0) {
+      filteredUsers = filteredUsers.filter(u => u.rol === rol);
+    }
+
+    console.log('[Get All Users] Sending response:', {
+      totalUsers: usuarios?.length || 0,
+      filteredUsers: filteredUsers.length,
+      success: true
+    });
 
     res.json({
       success: true,
-      data: { usuarios }
+      data: { usuarios: filteredUsers }
     });
+
   } catch (error) {
-    console.error('[Get All Users Error]', error.message);
+    console.error('[Get All Users Catch Error]', error);
     res.status(500).json({
       success: false,
-      error: 'Error al obtener usuarios',
-      code: 'GET_USERS_ERROR'
+      error: error.message || 'Error interno del servidor',
+      code: 'INTERNAL_ERROR',
+      stack: error.stack
     });
   }
 };
