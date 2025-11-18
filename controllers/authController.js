@@ -237,13 +237,13 @@ export const getAllUsers = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre_completo, telefono, rol, status } = req.body;
+    // To-do: Agregar el campo de status a la base de datos
+    const { nombre_completo, telefono, rol } = req.body;
 
     const updateData = {};
     if (nombre_completo !== undefined) updateData.nombre_completo = nombre_completo;
     if (telefono !== undefined) updateData.telefono = telefono || null;
     if (rol) updateData.rol = rol;
-    if (status) updateData.status = status;
 
     const { data: usuario, error } = await supabaseAdmin
       .from('usuarios')
