@@ -55,6 +55,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Bienvenida a la API
+app.get('/welcome', (req, res) => {
+  res.json({ message: 'Bienvenido a la API de Hexodus🚀'});
+});
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
