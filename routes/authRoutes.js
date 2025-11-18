@@ -44,6 +44,39 @@ router.get('/users-test', async (req, res) => {
   }
 });
 
+// Endpoint para verificar token (temporal)
+router.get('/verify-token', async (req, res) => {
+  try {
+    console.log('[Verify Token] Starting...');
+    const authHeader = req.headers.authorization;
+    console.log('[Verify Token] Auth header:', authHeader ? 'Present' : 'Missing');
+    
+    if (!authHeader) {
+      return res.json({
+        success: false,
+        error: 'No authorization header'
+      });
+    }
+    
+    const token = authHeader.substring(7);
+    const { supabase } = await import('../config/supabase-config.js');
+    
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    res.json({
+      success: !error,
+      user: user ? { id: user.id, email: user.email } : null,
+      error: error?.message || null,
+      tokenLength: token.length
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
 // Endpoint de prueba (temporal)
 router.get('/test-db', verifyAuth, async (req, res) => {
   try {
