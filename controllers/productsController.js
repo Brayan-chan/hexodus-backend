@@ -257,7 +257,67 @@ export const deleteProduct = async (req, res) => {
   }
 };
 
-// 4. GET - Obtener todos los productos con paginación
+// 4. GET - Obtener producto individual por ID
+export const getProductById = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    console.log('[Get Product By ID] Obteniendo producto:', productId);
+
+    // Verificar que el producto existe
+    const productDoc = await getDoc(doc(db, 'productos', productId));
+    
+    if (!productDoc.exists()) {
+      return res.status(404).json({
+        success: false,
+        error: 'Producto no encontrado',
+        code: 'PRODUCT_NOT_FOUND'
+      });
+    }
+
+    const productData = productDoc.data();
+    
+    // Verificar permisos - el usuario solo puede ver sus propios productos
+    if (productData.id_usuario !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permisos para ver este producto',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    console.log('[Get Product By ID] Producto encontrado exitosamente:', productId);
+
+    res.json({
+      success: true,
+      data: {
+        producto: {
+          id: productDoc.id,
+          uuid_producto: productData.uuid_producto,
+          codigo_producto: productData.codigo_producto,
+          nombre_producto: productData.nombre_producto,
+          descripcion: productData.descripcion,
+          costo: productData.costo,
+          precio: productData.precio,
+          status_producto: productData.status_producto,
+          fecha_creacion: productData.fecha_creacion,
+          fecha_actualizacion: productData.fecha_actualizacion,
+          id_usuario: productData.id_usuario
+        }
+      },
+      message: 'Producto obtenido correctamente'
+    });
+
+  } catch (error) {
+    console.error('[Get Product By ID Error]', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener el producto',
+      code: 'GET_PRODUCT_BY_ID_ERROR'
+    });
+  }
+};
+
+// 5. GET - Obtener todos los productos con paginación
 export const getProducts = async (req, res) => {
   try {
     const { 
@@ -332,7 +392,7 @@ export const getProducts = async (req, res) => {
   }
 };
 
-// 5. GET - Buscar productos por nombre o código
+// 6. GET - Buscar productos por nombre o código
 export const searchProducts = async (req, res) => {
   try {
     const { search, nombre, codigo } = req.query;
@@ -424,7 +484,7 @@ export const searchProducts = async (req, res) => {
   }
 };
 
-// 6. GET - Filtrar productos por status o precio
+// 7. GET - Filtrar productos por status o precio
 export const filterProducts = async (req, res) => {
   try {
     const { status, precio_min, precio_max } = req.query;

@@ -25,4 +25,7 @@ router.get('/search', productsController.searchProducts);
 // 6. GET - Filtrar productos por status o precio
 router.get('/filter', productsController.filterProducts);
 
+// 7. GET - Obtener producto individual por ID (debe ir al final para evitar conflictos)
+router.get('/:productId', productsController.getProductById);
+
 export default router;
