@@ -8,6 +8,7 @@ router.use(verifyAuth);
 
 router.post('/', sociosController.createSocio);
 router.get('/', sociosController.getSocios);
+router.get('/tipos-membresia', sociosController.getTiposMembresia);
 router.get('/:id', sociosController.getSocioById);
 router.put('/:id', sociosController.updateSocio);
 router.delete('/:id', sociosController.deleteSocio);
