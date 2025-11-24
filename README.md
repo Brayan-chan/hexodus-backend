@@ -7,7 +7,7 @@ Backend para la aplicación Hexodus, un sistema de gestión para gimnasios que p
 Desarrollar una API robusta para gestionar todas las operaciones de un gimnasio, incluyendo:
 - ✅ Gestión de socios y sus membresías
 - ✅ Control de ventas y productos
-- ✅ Sistema de autenticación y autorización JWT
+- ✅ Sistema de autenticación y autorización JWT con Firebase
 - ✅ Administración de inventario
 - ✅ Reportes de ventas y gestión
 - ✅ Movimientos de caja
@@ -17,7 +17,7 @@ Desarrollar una API robusta para gestionar todas las operaciones de un gimnasio,
 
 - **Node.js** - Runtime de JavaScript
 - **Express** - Framework web
-- **Supabase** - Base de datos PostgreSQL y autenticación
+- **Firebase** - Autenticación y base de datos Firestore
 - **Zod** - Validación de esquemas
 - **JWT** - Autenticación con tokens
 - **CORS** - Configuración de CORS
@@ -39,24 +39,35 @@ npm install
 3. Configurar variables de entorno:
 - Crear archivo `.env` con las siguientes variables:
   ```env
-  PORT=3000
-  SUPABASE_URL=tu_url_de_supabase
-  SUPABASE_ANON_KEY=tu_llave_anonima
-  SUPABASE_SERVICE_ROLE_KEY=tu_llave_de_servicio
+  PORT=3300
+  JWT_SECRET=hexodus-secret-key-2024
   ```
 
-4. Iniciar el servidor:
-```bash
-# Desarrollo con auto-recarga
-npm run dev
+4. Configurar Firebase:
+- El proyecto está configurado para usar Firebase con las siguientes credenciales:
+  ```javascript
+  const firebaseConfig = {
+    apiKey: "AIzaSyC4qznu3hKRByQRSIm4pkc__-J6e8JqTPk",
+    authDomain: "hexodusgym.firebaseapp.com",
+    projectId: "hexodusgym",
+    storageBucket: "hexodusgym.firebasestorage.app",
+    messagingSenderId: "575555434492",
+    appId: "1:575555434492:web:af4584fcfc3c424d74e479"
+  };
+  ```
 
-# Producción
-npm start
+5. Iniciar el servidor:
+```bash
+# Desarrollo
+node index.js
+
+# Con nodemon (si está instalado)
+npm run dev
 ```
 
 ## 🌐 Base URL
 
-- **Local**: `http://localhost:3000`
+- **Local**: `http://localhost:3300`
 - **Producción**: `https://hexodus-backend.vercel.app`
 
 ## 📋 API Documentation
@@ -69,14 +80,16 @@ Authorization: Bearer <tu_jwt_token>
 Content-Type: application/json
 ```
 
-#### Registrar Usuario (POST /api/auth/signup)
+#### Registrar Usuario (POST /auth/register)
 ```bash
-curl -X POST https://hexodus-backend.vercel.app/api/auth/signup \
+curl -X POST http://localhost:3300/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@hexodus.com",
     "password": "admin123456",
-    "fullName": "Administrador Hexodus"
+    "nombre": "Administrador Hexodus",
+    "telefono": "1234567890",
+    "rol": "admin"
   }'
 ```
 
@@ -86,22 +99,22 @@ curl -X POST https://hexodus-backend.vercel.app/api/auth/signup \
   "success": true,
   "data": {
     "user": {
-      "id": "3866d804-fc9c-4724-8308-4ae71da108e8",
+      "id": "eBrg8JLxzsUnIKTcS2iNWWv5tng2",
       "email": "admin@hexodus.com",
-      "fullName": "Administrador Hexodus"
+      "nombre": "Administrador Hexodus",
+      "telefono": "1234567890",
+      "rol": "admin",
+      "status": "activo"
     },
-    "session": {
-      "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-      "refreshToken": "yuoyo6ezcx7k"
-    }
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   },
-  "message": "Usuario registrado. Verifica tu email para confirmar."
+  "message": "Usuario registrado exitosamente"
 }
 ```
 
-#### Iniciar Sesión (POST /api/auth/signin)
+#### Iniciar Sesión (POST /auth/login)
 ```bash
-curl -X POST https://hexodus-backend.vercel.app/api/auth/signin \
+curl -X POST http://localhost:3300/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@hexodus.com",
@@ -115,46 +128,23 @@ curl -X POST https://hexodus-backend.vercel.app/api/auth/signin \
   "success": true,
   "data": {
     "user": {
-      "id": "3866d804-fc9c-4724-8308-4ae71da108e8",
+      "id": "eBrg8JLxzsUnIKTcS2iNWWv5tng2",
       "email": "admin@hexodus.com",
-      "fullName": "Administrador Hexodus"
+      "nombre": "Administrador Hexodus",
+      "telefono": "1234567890",
+      "rol": "admin",
+      "status": "activo"
     },
-    "session": {
-      "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-      "refreshToken": "yuoyo6ezcx7k",
-      "expiresIn": 3600
-    }
-  }
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  },
+  "message": "Inicio de sesión exitoso"
 }
 ```
 
-#### Cerrar Sesión (POST /api/auth/logout)
+#### Obtener Usuario Actual (GET /auth/me)
 ```bash
-curl -X POST https://hexodus-backend.vercel.app/api/auth/logout \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-#### Obtener Usuario Actual (GET /api/auth/user)
-```bash
-curl -X GET https://hexodus-backend.vercel.app/api/auth/user \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-### 👥 Gestión de Socios
-
-#### Crear Socio (POST /api/socios)
-```bash
-curl -X POST https://hexodus-backend.vercel.app/api/socios \
-  -H "Authorization: Bearer <tu_token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nombre": "Juan Carlos",
-    "apellido_paterno": "González",
-    "apellido_materno": "López",
-    "telefono": "5551234567",
-    "email": "juan.gonzalez@email.com",
-    "observaciones": "Cliente frecuente, interesado en entrenamientos de fuerza"
-  }'
+curl -X GET http://localhost:3300/auth/me \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 
 **Respuesta exitosa:**
@@ -162,64 +152,37 @@ curl -X POST https://hexodus-backend.vercel.app/api/socios \
 {
   "success": true,
   "data": {
-    "socio": {
-      "id": "c9a12c86-3579-4f51-a396-9b1f2611da90",
-      "codigo": "SOC-1763431632822",
-      "nombre": "Juan Carlos",
-      "apellido_paterno": "González",
-      "apellido_materno": "López",
-      "email": "juan.gonzalez@email.com",
-      "telefono": "5551234567",
-      "observaciones": "Cliente frecuente, interesado en entrenamientos de fuerza",
-      "estado": "activo",
-      "fecha_creacion": "2025-11-18T02:07:13.037975+00:00",
-      "id_usuario": "1d895458-0239-4254-9494-f4d047bffad2"
+    "user": {
+      "id": "eBrg8JLxzsUnIKTcS2iNWWv5tng2",
+      "email": "admin@hexodus.com",
+      "nombre": "Administrador Hexodus",
+      "telefono": "1234567890",
+      "rol": "admin",
+      "status": "activo"
     }
-  }
+  },
+  "message": "Usuario obtenido correctamente"
 }
 ```
 
-#### Obtener Lista de Socios (GET /api/socios)
+#### Cerrar Sesión (POST /auth/logout)
 ```bash
-curl -X GET "https://hexodus-backend.vercel.app/api/socios?limit=50&offset=0&estado=activo" \
-  -H "Authorization: Bearer <tu_token>"
+curl -X POST http://localhost:3300/auth/logout \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 
-**Parámetros de consulta:**
-- `limit`: Número máximo de resultados (default: 50)
-- `offset`: Número de registros a omitir (default: 0)
-- `estado`: Filtrar por estado (`activo`, `inactivo`)
-- `search`: Buscar por nombre, apellido o email
-
-#### Obtener Socio por ID (GET /api/socios/:id)
-```bash
-curl -X GET https://hexodus-backend.vercel.app/api/socios/c9a12c86-3579-4f51-a396-9b1f2611da90 \
-  -H "Authorization: Bearer <tu_token>"
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "Sesión cerrada correctamente"
+}
 ```
 
-#### Actualizar Socio (PUT /api/socios/:id)
+#### Obtener Todos los Usuarios (GET /auth/users) - Solo Admin
 ```bash
-curl -X PUT https://hexodus-backend.vercel.app/api/socios/c9a12c86-3579-4f51-a396-9b1f2611da90 \
-  -H "Authorization: Bearer <tu_token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "telefono": "5559876543",
-    "observaciones": "Información actualizada"
-  }'
-```
-
-#### Eliminar Socio (DELETE /api/socios/:id)
-```bash
-curl -X DELETE https://hexodus-backend.vercel.app/api/socios/c9a12c86-3579-4f51-a396-9b1f2611da90 \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-### 🎫 Gestión de Membresías
-
-#### Obtener Tipos de Membresía (GET /api/memberships/types)
-```bash
-curl -X GET https://hexodus-backend.vercel.app/api/memberships/types \
-  -H "Authorization: Bearer <tu_token>"
+curl -X GET http://localhost:3300/auth/users \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 
 **Respuesta exitosa:**
@@ -227,94 +190,78 @@ curl -X GET https://hexodus-backend.vercel.app/api/memberships/types \
 {
   "success": true,
   "data": {
-    "tiposMembresia": [
+    "users": [
       {
-        "id": "d6ec5057-a9f5-4c82-9391-045403444df7",
-        "nombre": "Membresía Mensual",
-        "tipo": "mensual",
-        "duracion_meses": 1,
-        "duracion_semanas": 0,
-        "duracion_dias": 0,
-        "precio": 80,
-        "descripcion": "Acceso mensual completo",
-        "estado": "activo"
+        "uid": "eBrg8JLxzsUnIKTcS2iNWWv5tng2",
+        "email": "admin@hexodus.com",
+        "nombre": "Administrador Hexodus",
+        "telefono": "1234567890",
+        "rol": "admin",
+        "status": "activo"
       }
     ]
   }
 }
 ```
 
-#### Asignar Membresía a Socio (POST /api/memberships)
-```bash
-curl -X POST https://hexodus-backend.vercel.app/api/memberships \
-  -H "Authorization: Bearer <tu_token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id_socio": "c9a12c86-3579-4f51-a396-9b1f2611da90",
-    "id_tipo_membresia": "d6ec5057-a9f5-4c82-9391-045403444df7",
-    "fecha_inicio": "2025-11-18T00:00:00Z",
-    "fecha_vencimiento": "2025-12-18T23:59:59Z",
-    "precio_pagado": 80.00,
-    "estado_pago": "pagada"
-  }'
-```
+### ⚠️ Gestión de Errores
 
-#### Obtener Membresías (GET /api/memberships)
-```bash
-curl -X GET "https://hexodus-backend.vercel.app/api/memberships?id_socio=c9a12c86-3579-4f51-a396-9b1f2611da90" \
-  -H "Authorization: Bearer <tu_token>"
-```
+La API maneja los siguientes códigos de error:
 
-### 🛒 Gestión de Productos
+- **400** - Bad Request: Datos de entrada inválidos
+- **401** - Unauthorized: Token JWT inválido o expirado
+- **403** - Forbidden: No tiene permisos para esta acción
+- **404** - Not Found: Recurso no encontrado
+- **409** - Conflict: Conflicto de datos (ej: email duplicado)
+- **500** - Internal Server Error: Error interno del servidor
 
-#### Crear Producto (POST /api/products)
-```bash
-curl -X POST https://hexodus-backend.vercel.app/api/products \
-  -H "Authorization: Bearer <tu_token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "codigo": "PROT001",
-    "nombre": "Proteína Whey",
-    "descripcion": "Suplemento proteico de suero de leche",
-    "costo": 18.50,
-    "precio": 25.99,
-    "stock": 100,
-    "estado": "activo"
-  }'
-```
-
-**Respuesta exitosa:**
+**Ejemplo de respuesta de error:**
 ```json
 {
-  "success": true,
-  "data": {
-    "producto": {
-      "id": "65b7bae0-90be-487f-8643-223ad93ff966",
-      "codigo": "PROT001",
-      "nombre": "Proteína Whey",
-      "descripcion": "Suplemento proteico de suero de leche",
-      "costo": 18.5,
-      "precio": 25.99,
-      "stock": 100,
-      "stock_minimo": 5,
-      "estado": "activo",
-      "fecha_creacion": "2025-11-18T02:10:26.931055+00:00"
-    }
-  }
+  "success": false,
+  "error": "Email ya registrado",
+  "details": "El email admin@hexodus.com ya está en uso"
 }
 ```
 
-#### Obtener Lista de Productos (GET /api/products)
-```bash
-curl -X GET "https://hexodus-backend.vercel.app/api/products?limit=50&estado=activo" \
-  -H "Authorization: Bearer <tu_token>"
-```
+## 🚧 Módulos en Desarrollo
 
-#### Obtener Producto por ID (GET /api/products/:id)
-```bash
-curl -X GET https://hexodus-backend.vercel.app/api/products/65b7bae0-90be-487f-8643-223ad93ff966 \
-  -H "Authorization: Bearer <tu_token>"
-```
+Los siguientes módulos están en proceso de migración a Firebase y estarán disponibles próximamente:
+
+### 👥 Gestión de Socios
+- Crear, consultar, actualizar y eliminar socios
+- Sistema de búsqueda y filtros
+- Gestión de estados (activo/inactivo)
+
+### 🎫 Gestión de Membresías  
+- Tipos de membresías configurables
+- Asignación de membresías a socios
+- Control de vencimientos y renovaciones
+
+### 🛒 Gestión de Productos
+- Catálogo de productos y suplementos
+- Control de inventario y stock
+- Gestión de precios y costos
+
+### 💰 Gestión de Ventas
+- Registro de ventas de productos y membresías
+- Historial de transacciones
+- Reportes de ventas
+
+### 📊 Sistema de Reportes
+- Reportes de ventas por período
+- Estadísticas de socios activos
+- Análisis de productos más vendidos
+
+### 🎯 Control de Inventario
+- Movimientos de entrada y salida
+- Alertas de stock mínimo
+- Historial de movimientos
+
+### 🔑 Gestión de Roles
+- Roles de usuario configurables
+- Permisos granulares por módulo
+- Gestión de acceso a funcionalidades
 
 ### 💰 Gestión de Ventas
 
@@ -350,207 +297,89 @@ curl -X POST https://hexodus-backend.vercel.app/api/sales \
   "data": {
     "venta": {
       "id": "fd0b90a9-8c97-44ad-8622-29c352634b59",
-      "numero_venta": "VTA-1763431964532",
-      "id_socio": "c9a12c86-3579-4f51-a396-9b1f2611da90",
-      "monto_total": 59.48,
-      "metodo_pago": "efectivo",
-      "notas": "Primera venta de prueba",
-      "estado": "activo",
-      "fecha_creacion": "2025-11-18T02:12:44.719002+00:00",
-      "items": [...]
-    }
-  }
-}
-```
+## 📊 Esquemas de Datos de Firebase
 
-#### Obtener Lista de Ventas (GET /api/sales)
-```bash
-curl -X GET "https://hexodus-backend.vercel.app/api/sales?limit=50" \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-### 📊 Reportes
-
-#### Reporte de Ventas (GET /api/reports/sales)
-```bash
-curl -X GET "https://hexodus-backend.vercel.app/api/reports/sales?fecha_inicio=2025-11-01&fecha_fin=2025-11-30" \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-**Respuesta exitosa:**
-```json
-{
-  "success": true,
-  "data": {
-    "report": {
-      "titulo": "Reporte de Ventas",
-      "fecha_generacion": "2025-11-18T02:15:51.107Z",
-      "total_ventas": 1,
-      "total_ingreso": 59.48,
-      "total_productos": 5,
-      "datos": [...]
-    }
-  }
-}
-```
-
-#### Reporte de Inventario (GET /api/reports/inventory)
-```bash
-curl -X GET https://hexodus-backend.vercel.app/api/reports/inventory \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-#### Reporte de Membresías (GET /api/reports/memberships)
-```bash
-curl -X GET https://hexodus-backend.vercel.app/api/reports/memberships \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-### 🏪 Gestión de Inventario
-
-#### Crear Producto de Inventario (POST /api/inventory)
-```bash
-curl -X POST https://hexodus-backend.vercel.app/api/inventory \
-  -H "Authorization: Bearer <tu_token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nombre": "Banda Elástica",
-    "stock": 25,
-    "precio": 15.99,
-    "tipo": "Equipo",
-    "proveedor": "FitnessPro",
-    "duracion": null
-  }'
-```
-
-#### Obtener Inventario (GET /api/inventory)
-```bash
-curl -X GET "https://hexodus-backend.vercel.app/api/inventory?tipo=Equipo&status=activo" \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-### 💼 Gestión de Roles
-
-#### Crear Rol (POST /api/roles)
-```bash
-curl -X POST https://hexodus-backend.vercel.app/api/roles \
-  -H "Authorization: Bearer <tu_token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nombre": "Recepcionista",
-    "rol": "recepcion",
-    "descripcion": "Personal de recepción y atención al cliente"
-  }'
-```
-
-#### Obtener Roles (GET /api/roles)
-```bash
-curl -X GET https://hexodus-backend.vercel.app/api/roles \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-### 💸 Gestión de Movimientos
-
-#### Crear Movimiento (POST /api/movements)
-```bash
-curl -X POST https://hexodus-backend.vercel.app/api/movements \
-  -H "Authorization: Bearer <tu_token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tipo": "ingreso",
-    "concepto_id": "uuid-del-concepto",
-    "monto": 500.00,
-    "tipo_pago": "efectivo",
-    "observaciones": "Pago de membresía mensual"
-  }'
-```
-
-#### Obtener Movimientos (GET /api/movements)
-```bash
-curl -X GET "https://hexodus-backend.vercel.app/api/movements?tipo=ingreso&fecha_inicio=2025-11-01" \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-#### Obtener Conceptos de Movimientos (GET /api/movements/concepts)
-```bash
-curl -X GET https://hexodus-backend.vercel.app/api/movements/concepts \
-  -H "Authorization: Bearer <tu_token>"
-```
-
-## 🛡️ Códigos de Respuesta
-
-| Código | Descripción |
-|--------|-------------|
-| 200 | ✅ Operación exitosa |
-| 201 | ✅ Recurso creado exitosamente |
-| 400 | ❌ Error en la solicitud (datos inválidos) |
-| 401 | 🔒 No autorizado (token inválido/faltante) |
-| 403 | 🚫 Prohibido (sin permisos) |
-| 404 | 🔍 Recurso no encontrado |
-| 500 | 💥 Error interno del servidor |
-
-## 📝 Formato de Respuesta
-
-Todas las respuestas siguen el formato estándar:
-
-### Respuesta Exitosa
-```json
-{
-  "success": true,
-  "data": {
-    // Datos de la respuesta
-  },
-  "message": "Mensaje opcional"
-}
-```
-
-### Respuesta de Error
-```json
-{
-  "success": false,
-  "error": "Descripción del error",
-  "code": "ERROR_CODE"
-}
-```
-
-## 🔐 Autenticación
-
-1. **Registrarse o iniciar sesión** para obtener un JWT token
-2. **Incluir el token** en todas las rutas protegidas:
-   ```
-   Authorization: Bearer <tu_jwt_token>
-   ```
-3. **El token expira** después de 1 hora
-4. **Usar refresh token** para renovar sesión
-
-## 📊 Esquemas de Datos
-
-### Socio
+### Usuario (Colección: usuarios)
 ```javascript
 {
-  id: "uuid",
-  codigo: "SOC-timestamp",
+  uid: "firebase_uid",
+  email: "string",
   nombre: "string",
-  apellido_paterno: "string", 
-  apellido_materno: "string",
-  email: "email",
   telefono: "string",
-  fecha_nacimiento: "date|null",
-  genero: "string|null",
-  direccion: "string|null",
-  contacto_emergencia: "string|null",
-  observaciones: "string|null",
-  estado: "activo|inactivo",
-  foto_url: "string|null",
-  huella_url: "string|null",
-  fecha_creacion: "timestamp",
-  fecha_actualizacion: "timestamp"
+  rol: "admin|recepcion|empleado",
+  status: "activo|inactivo",
+  createdAt: "timestamp",
+  updatedAt: "timestamp"
 }
 ```
 
-### Producto
-```javascript
-{
+## 🚀 Despliegue
+
+### Vercel (Recomendado)
+```bash
+# Instalar Vercel CLI
+npm i -g vercel
+
+# Desplegar
+vercel
+```
+
+### Variables de Entorno en Producción
+- `PORT`: Puerto del servidor (default: 3300)
+- `JWT_SECRET`: Clave secreta para JWT
+- `NODE_ENV`: Entorno de ejecución
+
+## 🧪 Testing
+
+```bash
+# Health check
+curl http://localhost:3300/health
+
+# Test de registro
+curl -X POST http://localhost:3300/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@test.com","password":"123456","nombre":"Test User","telefono":"1234567890","rol":"admin"}'
+```
+
+## 📂 Estructura del Proyecto
+
+```
+hexodus-backend/
+├── index.js              # Servidor principal
+├── package.json           # Dependencias
+├── vercel.json           # Configuración Vercel
+├── config/
+│   └── firebase-config.js # Configuración Firebase
+├── controllers/
+│   └── authController.js  # Lógica de autenticación
+├── middleware/
+│   ├── auth.js           # Middleware JWT
+│   └── validation.js     # Validación Zod
+└── routes/
+    └── authRoutes.js     # Rutas de autenticación
+```
+
+## 👥 Contribuir
+
+1. Fork el proyecto
+2. Crear rama de feature (`git checkout -b feature/AmazingFeature`)
+3. Commit cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abrir Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
+
+## 📞 Contacto
+
+- **Desarrollador**: Brayan Chan
+- **Email**: brayanchan@example.com
+- **Proyecto**: [https://github.com/Brayan-chan/hexodus-backend](https://github.com/Brayan-chan/hexodus-backend)
+
+---
+
+⭐️ **Hecho con ❤️ para Hexodus Gym**
   id: "uuid",
   codigo: "string",
   nombre: "string",
