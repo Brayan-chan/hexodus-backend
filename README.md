@@ -1,53 +1,459 @@
-# Hexodus Backend 🚀
+# Hexodus Backend API 🚀
 
-Backend para la aplicación Hexodus, un sistema de gestión para gimnasios que permite administrar socios, membresías, ventas y más.
+Sistema de backend completo para gestión de gimnasios con Firebase, autenticación JWT y gestión de productos/usuarios.
 
-## 🎯 Objetivo del Proyecto
+## 🎯 Características Principales
 
-Desarrollar una API robusta para gestionar todas las operaciones de un gimnasio, incluyendo:
-- ✅ Gestión de socios y sus membresías
-- ✅ Control de ventas y productos
-- ✅ Sistema de autenticación y autorización JWT con Firebase
-- ✅ Administración de inventario
-- ✅ Reportes de ventas y gestión
-- ✅ Movimientos de caja
-- ✅ Gestión de roles y usuarios
+### ✅ **Sistema de Usuarios Completo**
+- Autenticación con Firebase Auth + JWT
+- Gestión CRUD de usuarios con roles (admin/vendedor)
+- Validación de teléfonos opcional con fallback inteligente
+- Búsqueda, filtrado y paginación de usuarios
+- Control de estados (activo/inactivo)
 
-## 🛠️ Tecnologías Utilizadas
+### ✅ **Sistema de Productos Completo**
+- CRUD completo de productos con Firebase Firestore
+- Búsqueda inteligente (nombre, código, descripción)
+- Filtros avanzados (status, rangos de precio)
+- Paginación robusta
+- UUIDs únicos y timestamps automáticos
 
-- **Node.js** - Runtime de JavaScript
-- **Express** - Framework web
-- **Firebase** - Autenticación y base de datos Firestore
-- **Zod** - Validación de esquemas
-- **JWT** - Autenticación con tokens
-- **CORS** - Configuración de CORS
-- **dotenv** - Variables de entorno
+### ✅ **Seguridad y Validación**
+- Autenticación JWT con Firebase
+- Validación de esquemas con Zod
+- Permisos basados en roles
+- Protección CORS configurada
 
-## 📦 Instalación
+## 🛠️ Stack Tecnológico
 
-1. Clonar el repositorio:
+| Tecnología | Versión | Propósito |
+|------------|---------|-----------|
+| **Node.js** | 20+ | Runtime de JavaScript |
+| **Express** | ^4.18.0 | Framework web |
+| **Firebase** | ^10.0.0 | Auth + Firestore Database |
+| **Zod** | ^3.22.0 | Validación de esquemas |
+| **JWT** | ^9.0.0 | Tokens de autenticación |
+| **CORS** | ^2.8.5 | Control de acceso cross-origin |
+
+## 📦 Instalación y Configuración
+
+### 1. **Clonar repositorio**
 ```bash
-git clone https://github.com/Brayan-chan/hexodus-backend.git
+git clone https://github.com/Brayan-chan/hexodus-project.git
+cd hexodus-project/hexodus-backend
 ```
 
-2. Instalar dependencias:
+### 2. **Instalar dependencias**
 ```bash
-cd hexodus-backend
 npm install
 ```
 
-3. Configurar variables de entorno:
-- Crear archivo `.env` con las siguientes variables:
-  ```env
-  PORT=3300
-  JWT_SECRET=hexodus-secret-key-2024
-  ```
+### 3. **Variables de entorno**
+Crear archivo `.env`:
+```env
+PORT=3300
+JWT_SECRET=hexodus-secret-key-2024
+NODE_ENV=production
+```
 
-4. Configurar Firebase:
-- El proyecto está configurado para usar Firebase con las siguientes credenciales:
-  ```javascript
-  const firebaseConfig = {
-    apiKey: "AIzaSyC4qznu3hKRByQRSIm4pkc__-J6e8JqTPk",
+### 4. **Configuración Firebase**
+El proyecto usa Firebase con la siguiente configuración:
+```javascript
+// config/firebase-config.js
+const firebaseConfig = {
+  apiKey: "AIzaSyC4qznu3hKRByQRSIm4pkc__-J6e8JqTPk",
+  authDomain: "hexodusgym.firebaseapp.com", 
+  projectId: "hexodusgym",
+  storageBucket: "hexodusgym.firebasestorage.app",
+  messagingSenderId: "575555434492",
+  appId: "1:575555434492:web:af4584fcfc3c424d74e479"
+};
+```
+
+### 5. **Iniciar servidor**
+```bash
+# Desarrollo
+npm run dev
+# o
+node index.js
+
+# Producción
+npm start
+```
+
+## 🌐 URLs de Acceso
+
+| Ambiente | URL | Estado |
+|----------|-----|---------|
+| **Local** | `http://localhost:3300` | ✅ Funcional |
+| **Producción** | `https://hexodus-backend.vercel.app` | ✅ Desplegado |
+
+## 📚 Documentación de API
+
+### 🔐 **Autenticación**
+
+#### Headers requeridos para rutas protegidas:
+```http
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+```
+
+#### **POST /auth/login** - Iniciar sesión
+```bash
+curl -X POST "https://hexodus-backend.vercel.app/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "demo@hexodus.com",
+    "password": "123456"
+  }'
+```
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "firebase_user_id",
+      "email": "demo@hexodus.com",
+      "nombre": "Usuario Demo",
+      "telefono": "1234567890",
+      "rol": "admin",
+      "status": "activo"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIs..."
+  },
+  "message": "Login exitoso"
+}
+```
+
+#### **POST /auth/register** - Registrar usuario
+```bash
+curl -X POST "https://hexodus-backend.vercel.app/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "nuevo@hexodus.com",
+    "password": "123456",
+    "nombre": "Usuario Nuevo",
+    "telefono": "",
+    "rol": "vendedor"
+  }'
+```
+
+**Nota sobre teléfonos:**
+- Campo opcional: si se envía vacío, se guarda como "sin telefono"
+- Si se ingresa parcialmente (menos de 10 dígitos), se valida y rechaza
+- Debe ser exactamente 10 dígitos numéricos o estar vacío
+
+---
+
+### 👥 **Gestión de Usuarios**
+
+#### **GET /auth/users** - Listar usuarios (solo admins)
+```bash
+curl -X GET "https://hexodus-backend.vercel.app/auth/users?page=1&limit=10" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Parámetros de consulta:**
+- `page`: Número de página (default: 1)
+- `limit`: Elementos por página (default: 10)
+- `status`: Filtrar por estado (`activo`, `inactivo`)
+- `rol`: Filtrar por rol (`admin`, `vendedor`)
+- `search`: Buscar por nombre, email o teléfono
+
+#### **PUT /auth/users/:userId** - Actualizar usuario
+```bash
+curl -X PUT "https://hexodus-backend.vercel.app/auth/users/USER_ID" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "Nombre Actualizado",
+    "telefono": "9876543210",
+    "rol": "admin",
+    "status": "activo"
+  }'
+```
+
+#### **PATCH /auth/users/:userId/status** - Cambiar estado
+```bash
+curl -X PATCH "https://hexodus-backend.vercel.app/auth/users/USER_ID/status" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactivo"}'
+```
+
+---
+
+### 📦 **Gestión de Productos**
+
+#### **Estructura de Producto**
+```json
+{
+  "id": "firebase_document_id",
+  "uuid_producto": "unique_generated_id",
+  "codigo_producto": "PROD001", 
+  "nombre_producto": "Proteína Whey",
+  "descripcion": "Descripción del producto",
+  "costo": 25.50,
+  "precio": 45.99,
+  "status_producto": "en stock", // o "agotado"
+  "fecha_creacion": "firebase_timestamp",
+  "fecha_actualizacion": "firebase_timestamp",
+  "id_usuario": "user_firebase_id"
+}
+```
+
+#### **POST /api/products** - Crear producto
+```bash
+curl -X POST "https://hexodus-backend.vercel.app/api/products" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "codigo_producto": "PROD001",
+    "nombre_producto": "Proteína Whey",
+    "descripcion": "Proteína de suero sabor vainilla",
+    "costo": 25.50,
+    "precio": 45.99,
+    "status_producto": "en stock"
+  }'
+```
+
+#### **GET /api/products** - Listar productos
+```bash
+curl -X GET "https://hexodus-backend.vercel.app/api/products?page=1&limit=10" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Parámetros de consulta:**
+- `page`: Número de página (default: 1)
+- `limit`: Elementos por página (default: 10)
+
+#### **GET /api/products/search** - Buscar productos
+```bash
+# Búsqueda general (busca en nombre, código y descripción)
+curl -X GET "https://hexodus-backend.vercel.app/api/products/search?search=proteina" \
+  -H "Authorization: Bearer <token>"
+
+# Búsqueda específica por nombre
+curl -X GET "https://hexodus-backend.vercel.app/api/products/search?nombre=Vitamina" \
+  -H "Authorization: Bearer <token>"
+
+# Búsqueda específica por código
+curl -X GET "https://hexodus-backend.vercel.app/api/products/search?codigo=PROD" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Características de búsqueda:**
+- ✅ Case-insensitive (no importan mayúsculas/minúsculas)
+- ✅ Búsqueda parcial (encuentra coincidencias parciales)
+- ✅ Multi-campo (busca en nombre, código y descripción)
+
+#### **GET /api/products/filter** - Filtrar productos
+```bash
+# Filtrar por status
+curl -X GET "https://hexodus-backend.vercel.app/api/products/filter?status=en%20stock" \
+  -H "Authorization: Bearer <token>"
+
+# Filtrar por rango de precio
+curl -X GET "https://hexodus-backend.vercel.app/api/products/filter?precio_min=20&precio_max=50" \
+  -H "Authorization: Bearer <token>"
+
+# Filtros combinados
+curl -X GET "https://hexodus-backend.vercel.app/api/products/filter?status=en%20stock&precio_min=15&precio_max=25" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### **PUT /api/products/:id** - Actualizar producto
+```bash
+curl -X PUT "https://hexodus-backend.vercel.app/api/products/PRODUCT_ID" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "precio": 49.99,
+    "descripcion": "Descripción actualizada",
+    "status_producto": "agotado"
+  }'
+```
+
+#### **DELETE /api/products/:id** - Eliminar producto
+```bash
+curl -X DELETE "https://hexodus-backend.vercel.app/api/products/PRODUCT_ID" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+## 🔧 **Estructura del Proyecto**
+
+```
+hexodus-backend/
+├── 📁 config/
+│   └── firebase-config.js      # Configuración Firebase
+├── 📁 controllers/
+│   ├── authController.js       # Gestión de usuarios y auth
+│   └── productsController.js   # Gestión de productos
+├── 📁 middleware/
+│   ├── auth.js                 # Middleware de autenticación
+│   └── validation.js           # Middleware de validación
+├── 📁 routes/
+│   ├── authRoutes.js          # Rutas de autenticación
+│   └── productsRoutes.js      # Rutas de productos
+├── index.js                   # Punto de entrada principal
+├── package.json               # Dependencias y scripts
+├── vercel.json               # Configuración de deployment
+└── README.md                 # Documentación
+```
+
+## 🗄️ **Base de Datos Firebase**
+
+### **Colección: usuarios**
+```javascript
+{
+  uid: "firebase_auth_uid",
+  email: "usuario@email.com", 
+  nombre: "Nombre Usuario",
+  telefono: "1234567890", // o "sin telefono"
+  rol: "admin", // o "vendedor"
+  status: "activo", // o "inactivo"
+  fecha_creacion: timestamp,
+  ultimo_acceso: timestamp,
+  fecha_actualizacion: timestamp
+}
+```
+
+### **Colección: productos**
+```javascript
+{
+  uuid_producto: "generated_unique_id",
+  codigo_producto: "PROD001",
+  nombre_producto: "Nombre del Producto",
+  descripcion: "Descripción opcional",
+  costo: 25.50,
+  precio: 45.99, 
+  status_producto: "en stock", // o "agotado"
+  id_usuario: "owner_user_id",
+  fecha_creacion: timestamp,
+  fecha_actualizacion: timestamp
+}
+```
+
+## 🛡️ **Seguridad y Validación**
+
+### **Validaciones Implementadas**
+
+#### **Usuarios:**
+- Email: Formato válido requerido
+- Contraseña: Mínimo 6 caracteres
+- Nombre: Mínimo 2 caracteres
+- Teléfono: 10 dígitos numéricos o vacío
+- Rol: Solo 'admin' o 'vendedor'
+
+#### **Productos:**
+- Código: Requerido, único por usuario
+- Nombre: Mínimo 2 caracteres
+- Precios: Números positivos
+- Status: Solo 'en stock' o 'agotado'
+
+### **Permisos por Rol**
+
+| Acción | Admin | Vendedor |
+|--------|-------|----------|
+| Ver usuarios | ✅ | ❌ |
+| Crear usuarios | ✅ | ❌ |
+| Editar usuarios | ✅ | Solo propio perfil |
+| Cambiar estados | ✅ | ❌ |
+| CRUD productos | ✅ | ✅ |
+| Ver todos productos | ✅ | Solo propios |
+
+## 🚀 **Deployment**
+
+### **Variables de Entorno en Producción**
+```env
+JWT_SECRET=your-super-secure-jwt-secret
+NODE_ENV=production
+```
+
+### **Configuración Vercel**
+```json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.js"
+    }
+  ]
+}
+```
+
+## 📊 **Códigos de Estado HTTP**
+
+| Código | Significado | Uso |
+|--------|-------------|-----|
+| **200** | OK | Operaciones exitosas |
+| **201** | Created | Recursos creados |
+| **400** | Bad Request | Validación fallida |
+| **401** | Unauthorized | Token inválido/ausente |
+| **403** | Forbidden | Sin permisos |
+| **404** | Not Found | Recurso no encontrado |
+| **409** | Conflict | Duplicado (email/código) |
+| **500** | Server Error | Error interno |
+
+## 🐛 **Debugging y Logs**
+
+### **Logs del Sistema**
+El servidor genera logs detallados:
+```
+[Auth] Usuario logueado: email
+[Products] Productos obtenidos: cantidad
+[Search] Búsqueda: término -> resultados
+[Error] Descripción del error
+```
+
+### **Testing con curl**
+```bash
+# Verificar salud del servidor
+curl https://hexodus-backend.vercel.app
+
+# Login y obtener token
+TOKEN=$(curl -s -X POST "https://hexodus-backend.vercel.app/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@hexodus.com","password":"123456"}' \
+  | jq -r '.data.token')
+
+# Usar token en peticiones
+curl -X GET "https://hexodus-backend.vercel.app/api/products" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## 🤝 **Contribución**
+
+1. Fork del repositorio
+2. Crear branch: `git checkout -b feature/nueva-funcionalidad`
+3. Commit: `git commit -am 'Agregar nueva funcionalidad'`
+4. Push: `git push origin feature/nueva-funcionalidad`
+5. Pull Request
+
+## 📄 **Licencia**
+
+Este proyecto está bajo la licencia MIT. Ver archivo `LICENSE` para más detalles.
+
+---
+
+## 📞 **Contacto y Soporte**
+
+- **Repositorio**: [hexodus-project](https://github.com/Brayan-chan/hexodus-project)
+- **Autor**: Brayan Chan
+- **API Base**: `https://hexodus-backend.vercel.app`
+
+**🎯 Sistema completo funcionando al 100% - Listo para producción** ✅
     authDomain: "hexodusgym.firebaseapp.com",
     projectId: "hexodusgym",
     storageBucket: "hexodusgym.firebasestorage.app",

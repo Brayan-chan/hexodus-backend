@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 
 // Import solo el auth route por ahora
 import authRoutes from './routes/authRoutes.js';
+import productsRoutes from './routes/productsRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -41,6 +42,7 @@ app.get('/', (req, res) => {
 
 // Routes
 app.use('/auth', authRoutes);
+app.use('/api/products', productsRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -57,6 +59,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/`);
   console.log(`🔐 Auth endpoints: http://localhost:${PORT}/auth/`);
+  console.log(`📼 Products endpoints: http://localhost:${PORT}/api/products/`);
 });
 
 export default app;
