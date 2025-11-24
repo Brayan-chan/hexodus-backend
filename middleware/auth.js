@@ -1,4 +1,6 @@
-import { supabase, supabaseAdmin } from '../config/supabase-config.js';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'hexodus-secret-key-2024';
 
 export const verifyAuth = async (req, res, next) => {
   try {
@@ -18,76 +20,75 @@ export const verifyAuth = async (req, res, next) => {
     const token = authHeader.substring(7);
     console.log('[Auth] Token extracted, length:', token.length);
 
-    // Verificar token con Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    console.log('[Auth] Supabase auth result:', { 
-      userId: user?.id || 'No user', 
-      error: error?.message || 'No error' 
+    // Verificar JWT token
+    const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('[Auth] JWT verification successful for user:', decoded.id);
+
+    // Agregar información del usuario al request
+    req.user = {
+      id: decoded.id,
+      email: decoded.email,
+      nombre: decoded.nombre,
+      rol: decoded.rol
+    };
+
+    console.log('[Auth] User authenticated:', { 
+      id: req.user.id, 
+      email: req.user.email,
+      rol: req.user.rol 
     });
 
-    if (error || !user) {
-      console.log('[Auth] Token validation failed:', error?.message);
+    next();
+
+  } catch (error) {
+    console.error('[Auth] Verification failed:', error.message);
+    
+    if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
         success: false,
-        error: 'Token inválido o expirado',
+        error: 'Token inválido',
         code: 'INVALID_TOKEN'
       });
     }
-
-    // Obtener el usuario de la tabla usuarios
-    console.log('[Auth] Looking up user in usuarios table with id_auth:', user.id);
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('usuarios')
-      .select('id, email, nombre_completo, rol')
-      .eq('id_auth', user.id)
-      .single();
-
-    console.log('[Auth] User lookup result:', { 
-      found: !!userData, 
-      error: userError?.message || 'No error',
-      userData: userData ? { id: userData.id, email: userData.email } : 'No data'
-    });
-
-    if (userError || !userData) {
-      console.log('[Auth] User not found in usuarios table');
+    
+    if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
-        error: 'Usuario no encontrado en el sistema',
-        code: 'USER_NOT_FOUND'
+        error: 'Token expirado',
+        code: 'TOKEN_EXPIRED'
       });
     }
 
-    // Agregar usuario del sistema al request
-    req.user = {
-      id: userData.id,
-      authId: user.id,
-      email: userData.email,
-      fullName: userData.nombre_completo,
-      rol: userData.rol
-    };
-    
-    console.log('[Auth] Authentication successful for user:', userData.email);
-    next();
-  } catch (error) {
-    console.error('[Auth Error]', error.message);
     res.status(500).json({
       success: false,
-      error: 'Error en autenticación',
+      error: 'Error en verificación de autenticación',
       code: 'AUTH_ERROR'
     });
   }
 };
 
-export const errorHandler = (err, req, res, next) => {
-  console.error('[Error]', err);
-  
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Error interno del servidor';
-  const code = err.code || 'INTERNAL_ERROR';
+// Middleware para verificar roles específicos
+export const requireRole = (roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Usuario no autenticado',
+        code: 'NOT_AUTHENTICATED'
+      });
+    }
 
-  res.status(statusCode).json({
-    success: false,
-    error: message,
-    code
-  });
+    if (!roles.includes(req.user.rol)) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permisos para esta acción',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    next();
+  };
 };
+
+// Alias para mantener compatibilidad
+export const authenticateToken = verifyAuth;
