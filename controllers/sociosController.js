@@ -7,7 +7,11 @@ const createSocioSchema = z.object({
   apellido_materno: z.string().min(2, 'Apellido materno requerido'),
   telefono: z.string().min(10, 'Teléfono inválido'),
   email: z.string().email('Email inválido'),
+  direccion: z.string().min(5, 'Dirección requerida'),
+  tipo_membresia: z.string().min(1, 'Tipo de membresía requerido'),
+  fecha_inicio: z.string().refine((date) => !isNaN(Date.parse(date)), 'Fecha de inicio inválida'),
   estado: z.enum(['activo', 'inactivo']).default('activo'),
+  estatus_pago: z.enum(['al_corriente', 'vencido', 'pendiente']).default('al_corriente'),
   observaciones: z.string().optional().nullable()
 });
 
@@ -17,10 +21,16 @@ export const createSocio = async (req, res) => {
   try {
     const data = createSocioSchema.parse(req.body);
 
+    // Calcular fecha de vencimiento (ejemplo: 30 días después del inicio)
+    const fechaInicio = new Date(data.fecha_inicio);
+    const fechaVencimiento = new Date(fechaInicio);
+    fechaVencimiento.setDate(fechaInicio.getDate() + 30); // 30 días por defecto
+
     const { data: socio, error } = await supabaseAdmin
       .from('socios')
       .insert({
         ...data,
+        fecha_vencimiento: fechaVencimiento.toISOString().split('T')[0],
         id_usuario: req.user.id,
         codigo: `SOC-${Date.now()}`
       })
@@ -45,7 +55,7 @@ export const createSocio = async (req, res) => {
 
 export const getSocios = async (req, res) => {
   try {
-    const { limit = 50, offset = 0, estado, search } = req.query;
+    const { limit = 50, offset = 0, estado, search, estatus_pago } = req.query;
 
     let query = supabaseAdmin
       .from('socios')
@@ -53,10 +63,11 @@ export const getSocios = async (req, res) => {
       .eq('id_usuario', req.user.id);
 
     if (estado) query = query.eq('estado', estado);
+    if (estatus_pago) query = query.eq('estatus_pago', estatus_pago);
     
     if (search) {
       query = query.or(
-        `nombre.ilike.%${search}%,apellido_paterno.ilike.%${search}%,apellido_materno.ilike.%${search}%,email.ilike.%${search}%`
+        `nombre.ilike.%${search}%,apellido_paterno.ilike.%${search}%,apellido_materno.ilike.%${search}%,email.ilike.%${search}%,codigo.ilike.%${search}%`
       );
     }
 
@@ -66,9 +77,15 @@ export const getSocios = async (req, res) => {
 
     if (error) throw error;
 
+    // Formatear datos para el frontend
+    const sociosFormateados = socios.map(socio => ({
+      ...socio,
+      nombre_completo: `${socio.nombre} ${socio.apellido_paterno} ${socio.apellido_materno}`.trim()
+    }));
+
     res.json({
       success: true,
-      data: { socios, total: count }
+      data: { socios: sociosFormateados, total: count }
     });
   } catch (error) {
     console.error('[Get Socios Error]', error.message);
@@ -226,6 +243,97 @@ export const enableSocio = async (req, res) => {
       success: false,
       error: 'Error al habilitar socio',
       code: 'ENABLE_SOCIO_ERROR'
+    });
+  }
+};
+
+// Obtener tipos de membresía para el formulario
+export const getTiposMembresia = async (req, res) => {
+  try {
+    const { data: tiposMembresia, error } = await supabaseAdmin
+      .from('tipos_membresia')
+      .select('id, nombre, precio, tipo, duracion_dias, duracion_meses')
+      .eq('estado', 'activo')
+      .order('nombre');
+
+    if (error) throw error;
+
+    // Si no hay tipos de membresía, crear algunos por defecto
+    if (!tiposMembresia || tiposMembresia.length === 0) {
+      const tiposDefault = [
+        {
+          nombre: 'Mensual',
+          precio: 1400,
+          tipo: 'mensual',
+          duracion_meses: 1,
+          duracion_dias: 30,
+          estado: 'activo',
+          descripcion: 'Membresía mensual estándar'
+        },
+        {
+          nombre: 'Trimestral',
+          precio: 3500,
+          tipo: 'trimestral',
+          duracion_meses: 3,
+          duracion_dias: 90,
+          estado: 'activo',
+          descripcion: 'Membresía trimestral con descuento'
+        },
+        {
+          nombre: 'Anual Premium',
+          precio: 12000,
+          tipo: 'anual',
+          duracion_meses: 12,
+          duracion_dias: 365,
+          estado: 'activo',
+          descripcion: 'Membresía anual premium con todos los beneficios'
+        }
+      ];
+
+      const { data: nuevosTypes, error: errorCreate } = await supabaseAdmin
+        .from('tipos_membresia')
+        .insert(tiposDefault)
+        .select('id, nombre, precio, tipo, duracion_dias, duracion_meses');
+
+      if (errorCreate) {
+        console.error('Error creando tipos por defecto:', errorCreate);
+        // Retornar tipos hardcodeados si falla la BD
+        res.json({
+          success: true,
+          data: { 
+            tiposMembresia: [
+              { id: 'mensual', nombre: 'Mensual', precio: 1400 },
+              { id: 'trimestral', nombre: 'Trimestral', precio: 3500 },
+              { id: 'anual', nombre: 'Anual Premium', precio: 12000 }
+            ]
+          }
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: { tiposMembresia: nuevosTypes }
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: { tiposMembresia }
+    });
+  } catch (error) {
+    console.error('[Get Tipos Membresia Error]', error.message);
+    // En caso de error, retornar tipos por defecto
+    res.json({
+      success: true,
+      data: { 
+        tiposMembresia: [
+          { id: 'mensual', nombre: 'Mensual', precio: 1400 },
+          { id: 'trimestral', nombre: 'Trimestral', precio: 3500 },
+          { id: 'anual', nombre: 'Anual Premium', precio: 12000 }
+        ]
+      }
     });
   }
 };
