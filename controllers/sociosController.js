@@ -4,15 +4,21 @@ import { z } from 'zod';
 const createSocioSchema = z.object({
   nombre: z.string().min(2, 'Nombre requerido'),
   apellido_paterno: z.string().min(2, 'Apellido paterno requerido'),
-  apellido_materno: z.string().min(2, 'Apellido materno requerido'),
+  apellido_materno: z.string().optional().nullable(), // Hacer opcional
   telefono: z.string().min(10, 'Teléfono inválido'),
   email: z.string().email('Email inválido'),
   direccion: z.string().min(5, 'Dirección requerida'),
+  fecha_nacimiento: z.string().optional().nullable(),
+  genero: z.string().optional().nullable(),
+  contacto_emergencia: z.string().optional().nullable(),
+  estado: z.enum(['activo', 'inactivo']).default('activo'),
+  observaciones: z.string().optional().nullable(),
+  foto_url: z.string().optional().nullable(),
+  huella_url: z.string().optional().nullable(),
+  // Campos para crear membresía
   tipo_membresia: z.string().min(1, 'Tipo de membresía requerido'),
   fecha_inicio: z.string().refine((date) => !isNaN(Date.parse(date)), 'Fecha de inicio inválida'),
-  estado: z.enum(['activo', 'inactivo']).default('activo'),
-  estatus_pago: z.enum(['al_corriente', 'vencido', 'pendiente']).default('al_corriente'),
-  observaciones: z.string().optional().nullable()
+  precio_pagado: z.number().positive('Precio debe ser positivo').optional()
 });
 
 const updateSocioSchema = createSocioSchema.partial();
@@ -21,27 +27,52 @@ export const createSocio = async (req, res) => {
   try {
     const data = createSocioSchema.parse(req.body);
 
+    // Extraer datos de membresía
+    const { tipo_membresia, fecha_inicio, precio_pagado, ...datosSocorro } = data;
+
     // Calcular fecha de vencimiento (ejemplo: 30 días después del inicio)
-    const fechaInicio = new Date(data.fecha_inicio);
+    const fechaInicio = new Date(fecha_inicio);
     const fechaVencimiento = new Date(fechaInicio);
     fechaVencimiento.setDate(fechaInicio.getDate() + 30); // 30 días por defecto
 
-    const { data: socio, error } = await supabaseAdmin
+    // Iniciar transacción: crear socio primero
+    const { data: socio, error: errorSocio } = await supabaseAdmin
       .from('socios')
       .insert({
-        ...data,
-        fecha_vencimiento: fechaVencimiento.toISOString().split('T')[0],
+        ...datosSocorro,
         id_usuario: req.user.id,
         codigo: `SOC-${Date.now()}`
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (errorSocio) throw errorSocio;
+
+    // Crear membresía asociada
+    const { data: membresia, error: errorMembresia } = await supabaseAdmin
+      .from('membresias')
+      .insert({
+        id_socio: socio.id,
+        id_tipo_membresia: tipo_membresia,
+        fecha_inicio: fechaInicio.toISOString(),
+        fecha_vencimiento: fechaVencimiento.toISOString(),
+        precio_pagado: precio_pagado || 0,
+        estado_pago: 'sin_pagar',
+        estado: 'activo',
+        id_usuario: req.user.id
+      })
+      .select()
+      .single();
+
+    if (errorMembresia) {
+      // Si falla la membresía, eliminar el socio creado
+      await supabaseAdmin.from('socios').delete().eq('id', socio.id);
+      throw errorMembresia;
+    }
 
     res.status(201).json({
       success: true,
-      data: { socio }
+      data: { socio: { ...socio, membresia } }
     });
   } catch (error) {
     console.error('[Create Socio Error]', error.message);
@@ -55,15 +86,30 @@ export const createSocio = async (req, res) => {
 
 export const getSocios = async (req, res) => {
   try {
-    const { limit = 50, offset = 0, estado, search, estatus_pago } = req.query;
+    const { limit = 50, offset = 0, estado, search } = req.query;
 
     let query = supabaseAdmin
       .from('socios')
-      .select('*', { count: 'exact' })
+      .select(`
+        *,
+        membresias (
+          id,
+          fecha_inicio,
+          fecha_vencimiento,
+          precio_pagado,
+          estado_pago,
+          estado,
+          tipos_membresia (
+            id,
+            nombre,
+            precio,
+            tipo
+          )
+        )
+      `, { count: 'exact' })
       .eq('id_usuario', req.user.id);
 
     if (estado) query = query.eq('estado', estado);
-    if (estatus_pago) query = query.eq('estatus_pago', estatus_pago);
     
     if (search) {
       query = query.or(
@@ -78,10 +124,20 @@ export const getSocios = async (req, res) => {
     if (error) throw error;
 
     // Formatear datos para el frontend
-    const sociosFormateados = socios.map(socio => ({
-      ...socio,
-      nombre_completo: `${socio.nombre} ${socio.apellido_paterno} ${socio.apellido_materno}`.trim()
-    }));
+    const sociosFormateados = socios.map(socio => {
+      const membresiaActiva = socio.membresias && socio.membresias.length > 0 
+        ? socio.membresias[0] 
+        : null;
+
+      return {
+        ...socio,
+        nombre_completo: `${socio.nombre} ${socio.apellido_paterno || ''} ${socio.apellido_materno || ''}`.trim(),
+        tipo_membresia: membresiaActiva?.tipos_membresia?.nombre || '-',
+        fecha_vencimiento: membresiaActiva?.fecha_vencimiento || null,
+        estatus_pago: membresiaActiva?.estado_pago || 'sin_pagar',
+        membresia_activa: membresiaActiva
+      };
+    });
 
     res.json({
       success: true,
@@ -103,7 +159,23 @@ export const getSocioById = async (req, res) => {
 
     const { data: socio, error } = await supabase
       .from('socios')
-      .select('*')
+      .select(`
+        *,
+        membresias (
+          id,
+          fecha_inicio,
+          fecha_vencimiento,
+          precio_pagado,
+          estado_pago,
+          estado,
+          tipos_membresia (
+            id,
+            nombre,
+            precio,
+            tipo
+          )
+        )
+      `)
       .eq('id', id)
       .eq('id_usuario', req.user.id)
       .single();
@@ -117,9 +189,23 @@ export const getSocioById = async (req, res) => {
       });
     }
 
+    // Formatear datos
+    const membresiaActiva = socio.membresias && socio.membresias.length > 0 
+      ? socio.membresias[0] 
+      : null;
+
+    const socioFormateado = {
+      ...socio,
+      nombre_completo: `${socio.nombre} ${socio.apellido_paterno || ''} ${socio.apellido_materno || ''}`.trim(),
+      tipo_membresia: membresiaActiva?.tipos_membresia?.nombre || '-',
+      fecha_vencimiento: membresiaActiva?.fecha_vencimiento || null,
+      estatus_pago: membresiaActiva?.estado_pago || 'sin_pagar',
+      membresia_activa: membresiaActiva
+    };
+
     res.json({
       success: true,
-      data: { socio }
+      data: { socio: socioFormateado }
     });
   } catch (error) {
     console.error('[Get Socio Error]', error.message);
@@ -134,24 +220,57 @@ export const getSocioById = async (req, res) => {
 export const updateSocio = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateSchema = createSocioSchema.partial().refine(
-      data => !('estado' in data) || ['activo', 'inactivo'].includes(data.estado)
-    );
+    const updateSchema = createSocioSchema.partial().omit({ 
+      tipo_membresia: true, 
+      fecha_inicio: true,
+      precio_pagado: true 
+    });
     const data = updateSchema.parse(req.body);
 
+    // Actualizar solo los datos del socio (no la membresía)
     const { data: socio, error } = await supabase
       .from('socios')
       .update(data)
       .eq('id', id)
       .eq('id_usuario', req.user.id)
-      .select()
+      .select(`
+        *,
+        membresias (
+          id,
+          fecha_inicio,
+          fecha_vencimiento,
+          precio_pagado,
+          estado_pago,
+          estado,
+          tipos_membresia (
+            id,
+            nombre,
+            precio,
+            tipo
+          )
+        )
+      `)
       .single();
 
     if (error) throw error;
 
+    // Formatear datos
+    const membresiaActiva = socio.membresias && socio.membresias.length > 0 
+      ? socio.membresias[0] 
+      : null;
+
+    const socioFormateado = {
+      ...socio,
+      nombre_completo: `${socio.nombre} ${socio.apellido_paterno || ''} ${socio.apellido_materno || ''}`.trim(),
+      tipo_membresia: membresiaActiva?.tipos_membresia?.nombre || '-',
+      fecha_vencimiento: membresiaActiva?.fecha_vencimiento || null,
+      estatus_pago: membresiaActiva?.estado_pago || 'sin_pagar',
+      membresia_activa: membresiaActiva
+    };
+
     res.json({
       success: true,
-      data: { socio }
+      data: { socio: socioFormateado }
     });
   } catch (error) {
     console.error('[Update Socio Error]', error.message);
