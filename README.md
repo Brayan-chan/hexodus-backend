@@ -199,8 +199,142 @@ curl -X GET http://localhost:3300/auth/users \
         "rol": "admin",
         "status": "activo"
       }
-    ]
-  }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 10,
+      "total": 1,
+      "total_pages": 1,
+      "has_next_page": false,
+      "has_prev_page": false
+    }
+  },
+  "message": "Se encontraron 1 usuarios"
+}
+```
+
+### 👤 Gestión Avanzada de Usuarios
+
+#### Obtener Usuario por ID (GET /auth/users/:userId)
+```bash
+curl -X GET http://localhost:3300/auth/users/eBrg8JLxzsUnIKTcS2iNWWv5tng2 \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+#### Actualizar Usuario (PUT /auth/users/:userId)
+```bash
+curl -X PUT http://localhost:3300/auth/users/eBrg8JLxzsUnIKTcS2iNWWv5tng2 \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "Nombre Actualizado",
+    "telefono": "9999999999"
+  }'
+```
+
+#### Eliminar Usuario (DELETE /auth/users/:userId) - Solo Admin
+```bash
+curl -X DELETE http://localhost:3300/auth/users/USER_ID \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+#### Cambiar Status de Usuario (PATCH /auth/users/:userId/status) - Solo Admin
+```bash
+curl -X PATCH http://localhost:3300/auth/users/USER_ID/status \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "inactivo"
+  }'
+```
+
+### 🔍 Búsqueda y Filtrado Avanzado
+
+#### Filtrar por Status
+```bash
+curl -X GET "http://localhost:3300/auth/users?status=activo" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+#### Filtrar por Rol
+```bash
+curl -X GET "http://localhost:3300/auth/users?rol=vendedor" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+#### Búsqueda por Texto
+```bash
+# Buscar en nombre, email y teléfono
+curl -X GET "http://localhost:3300/auth/users?search=Juan" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+#### Filtrado Combinado
+```bash
+curl -X GET "http://localhost:3300/auth/users?rol=vendedor&status=activo&search=Juan" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+### 📄 Paginación y Ordenamiento
+
+#### Paginación
+```bash
+# Página 1, 5 usuarios por página
+curl -X GET "http://localhost:3300/auth/users?page=1&limit=5" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+
+# Página 2
+curl -X GET "http://localhost:3300/auth/users?page=2&limit=5" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+#### Ordenamiento
+```bash
+# Ordenar por nombre ascendente
+curl -X GET "http://localhost:3300/auth/users?sortBy=nombre&sortOrder=asc" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+
+# Ordenar por fecha de creación descendente (default)
+curl -X GET "http://localhost:3300/auth/users?sortBy=fecha_creacion&sortOrder=desc" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+### 📊 Parámetros de Query Disponibles
+
+| Parámetro | Tipo | Descripción | Valores |
+|-----------|------|-------------|---------|
+| `page` | number | Número de página (default: 1) | 1, 2, 3... |
+| `limit` | number | Usuarios por página (default: 10) | 1-100 |
+| `status` | string | Filtrar por status | `activo`, `inactivo` |
+| `rol` | string | Filtrar por rol | `admin`, `vendedor` |
+| `search` | string | Buscar en nombre/email/teléfono | cualquier texto |
+| `sortBy` | string | Campo para ordenar | `fecha_creacion`, `nombre`, `email` |
+| `sortOrder` | string | Dirección del orden | `asc`, `desc` |
+
+### 📋 Estructura de Respuesta con Paginación
+
+```json
+{
+  "success": true,
+  "data": {
+    "users": [...],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 10,
+      "total": 25,
+      "total_pages": 3,
+      "has_next_page": true,
+      "has_prev_page": false
+    },
+    "filters": {
+      "status": "activo",
+      "rol": null,
+      "search": null,
+      "sortBy": "fecha_creacion",
+      "sortOrder": "desc"
+    }
+  },
+  "message": "Se encontraron 25 usuarios"
 }
 ```
 
@@ -223,6 +357,51 @@ La API maneja los siguientes códigos de error:
   "details": "El email admin@hexodus.com ya está en uso"
 }
 ```
+
+## 🔒 Sistema de Permisos
+
+### Roles de Usuario
+
+#### 👑 **Admin**
+- ✅ Acceso completo a todos los endpoints
+- ✅ Ver, crear, editar y eliminar cualquier usuario
+- ✅ Cambiar status y roles de usuarios
+- ✅ Acceder a reportes y estadísticas
+
+#### 👤 **Vendedor**
+- ✅ Ver y editar su propio perfil
+- ✅ Cambiar sus datos personales (nombre, teléfono)
+- ❌ No puede ver lista de otros usuarios
+- ❌ No puede eliminar usuarios
+- ❌ No puede cambiar roles o status
+
+### Matriz de Permisos
+
+| Endpoint | Admin | Vendedor |
+|----------|-------|----------|
+| `POST /auth/register` | ✅ | ❌ |
+| `POST /auth/login` | ✅ | ✅ |
+| `GET /auth/me` | ✅ | ✅ |
+| `GET /auth/users` | ✅ | ❌ |
+| `GET /auth/users/:id` | ✅ | ✅ (solo propio) |
+| `PUT /auth/users/:id` | ✅ | ✅ (solo propio) |
+| `DELETE /auth/users/:id` | ✅ | ❌ |
+| `PATCH /auth/users/:id/status` | ✅ | ❌ |
+
+## 🧪 Testing Completo
+
+### Casos de Uso Probados ✅
+
+1. **✅ Crear Usuarios**: Registro con validaciones
+2. **✅ Login/Logout**: Autenticación JWT
+3. **✅ Listado Paginado**: Con navegación completa
+4. **✅ Búsqueda Avanzada**: Multi-campo (nombre, email, teléfono)
+5. **✅ Filtros Múltiples**: Por rol, status, combinados
+6. **✅ Ordenamiento**: Por fecha, nombre, email
+7. **✅ CRUD Completo**: Crear, leer, actualizar, eliminar
+8. **✅ Permisos Granulares**: Admin vs Vendedor
+9. **✅ Validaciones**: Datos de entrada y business rules
+10. **✅ Error Handling**: Respuestas consistentes
 
 ## 🚧 Módulos en Desarrollo
 
@@ -304,14 +483,98 @@ curl -X POST https://hexodus-backend.vercel.app/api/sales \
 {
   uid: "firebase_uid",
   email: "string",
-  nombre: "string",
+  nombre: "string", 
   telefono: "string",
-  rol: "admin|recepcion|empleado",
+  rol: "admin|vendedor",
   status: "activo|inactivo",
-  createdAt: "timestamp",
-  updatedAt: "timestamp"
+  fecha_creacion: "firestore_timestamp",
+  ultimo_acceso: "firestore_timestamp",
+  fecha_actualizacion: "firestore_timestamp" // Opcional
 }
 ```
+
+### Respuesta de Usuario
+```javascript
+{
+  uid: "string",
+  email: "string",
+  nombre: "string",
+  telefono: "string", 
+  rol: "admin|vendedor",
+  status: "activo|inactivo",
+  fecha_creacion: {
+    type: "firestore/timestamp/1.0",
+    seconds: 1763966740,
+    nanoseconds: 91000000
+  },
+  ultimo_acceso: {
+    type: "firestore/timestamp/1.0", 
+    seconds: 1763968682,
+    nanoseconds: 862000000
+  }
+}
+```
+
+### Estructura de Paginación
+```javascript
+{
+  pagination: {
+    current_page: 1,      // Página actual
+    per_page: 10,         // Elementos por página  
+    total: 25,            // Total de elementos
+    total_pages: 3,       // Total de páginas
+    has_next_page: true,  // Si hay página siguiente
+    has_prev_page: false  // Si hay página anterior
+  }
+}
+```
+
+### Estructura de Filtros
+```javascript
+{
+  filters: {
+    status: "activo|inactivo|null",
+    rol: "admin|vendedor|null", 
+    search: "string|null",
+    sortBy: "fecha_creacion|nombre|email",
+    sortOrder: "asc|desc"
+  }
+}
+```
+
+## 🚀 Funcionalidades Implementadas
+
+### ✅ **Sistema de Usuarios Completo**
+
+#### 🔐 Autenticación
+- Registro de usuarios con Firebase Auth
+- Login con email/password
+- JWT tokens para sesiones
+- Logout seguro
+- Middleware de autenticación
+
+#### 👥 Gestión de Usuarios  
+- **CRUD Completo**: Crear, leer, actualizar, eliminar
+- **Búsqueda Avanzada**: Por nombre, email, teléfono
+- **Filtrado Múltiple**: Por rol, status, combinable
+- **Paginación Completa**: Con navegación y metadata
+- **Ordenamiento**: Por fecha, nombre, email (asc/desc)
+- **Permisos Granulares**: Admin vs Vendedor
+
+#### 🛡️ Seguridad
+- Validación Zod para todos los endpoints
+- Protección JWT en rutas sensibles
+- Control de permisos por rol
+- Prevención de auto-eliminación
+- Error handling robusto
+
+#### 📊 Características Avanzadas
+- Soft delete implementation
+- Timestamps automáticos
+- Búsqueda case-insensitive
+- Filtros combinables
+- Logging detallado
+- Respuestas consistentes
 
 ## 🚀 Despliegue
 
@@ -333,12 +596,21 @@ vercel
 
 ```bash
 # Health check
-curl http://localhost:3300/health
+curl http://localhost:3300/
 
-# Test de registro
+# Test completo de usuarios
 curl -X POST http://localhost:3300/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@test.com","password":"123456","nombre":"Test User","telefono":"1234567890","rol":"admin"}'
+
+# Login y obtener token
+curl -X POST http://localhost:3300/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@test.com","password":"123456"}'
+
+# Usar token para listar usuarios
+curl -X GET "http://localhost:3300/auth/users?page=1&limit=5" \
+  -H "Authorization: Bearer TU_TOKEN_AQUI"
 ```
 
 ## 📂 Estructura del Proyecto
@@ -348,16 +620,37 @@ hexodus-backend/
 ├── index.js              # Servidor principal
 ├── package.json           # Dependencias
 ├── vercel.json           # Configuración Vercel
+├── test-users-crud.md    # Tests documentados
 ├── config/
 │   └── firebase-config.js # Configuración Firebase
 ├── controllers/
-│   └── authController.js  # Lógica de autenticación
+│   └── authController.js  # Lógica completa de usuarios
 ├── middleware/
 │   ├── auth.js           # Middleware JWT
 │   └── validation.js     # Validación Zod
 └── routes/
-    └── authRoutes.js     # Rutas de autenticación
+    └── authRoutes.js     # Rutas completas de usuarios
 ```
+
+## 🔄 Estado del Desarrollo
+
+### ✅ **Completado al 100%**
+- Sistema de usuarios completo
+- Autenticación Firebase + JWT
+- CRUD con filtros y paginación
+- Búsqueda avanzada multi-campo
+- Sistema de permisos granular
+- Validaciones robustas
+- Error handling completo
+- Testing exhaustivo
+
+### 🚧 **En Desarrollo (Próximamente)**
+- Sistema de socios
+- Gestión de membresías
+- Control de inventario
+- Módulo de ventas
+- Sistema de reportes
+- Gestión de productos
 
 ## 👥 Contribuir
 

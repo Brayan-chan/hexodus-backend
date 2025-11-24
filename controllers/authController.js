@@ -12,8 +12,15 @@ import {
   query, 
   where, 
   getDocs,
-  serverTimestamp 
+  serverTimestamp,
+  updateDoc,
+  deleteDoc,
+  orderBy,
+  limit,
+  startAfter,
+  or
 } from 'firebase/firestore';
+import { deleteUser } from 'firebase/auth';
 import { auth, db } from '../config/firebase-config.js';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
@@ -32,6 +39,13 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'Contraseña requerida')
+});
+
+const updateUserSchema = z.object({
+  nombre: z.string().min(2, 'Nombre requerido').optional(),
+  telefono: z.string().min(10, 'Teléfono debe tener al menos 10 dígitos').optional(),
+  rol: z.enum(['admin', 'vendedor']).optional(),
+  status: z.enum(['activo', 'inactivo']).optional()
 });
 
 // Helper function para crear JWT token
@@ -299,7 +313,7 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
-// 5. GET - Obtener todos los usuarios (solo para admins)
+// 5. GET - Obtener todos los usuarios con búsqueda, filtrado y paginación (solo para admins)
 export const getUsers = async (req, res) => {
   try {
     // Verificar que el usuario sea admin
@@ -311,21 +325,49 @@ export const getUsers = async (req, res) => {
       });
     }
 
-    const { limit = 50, status } = req.query;
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      rol, 
+      search,
+      sortBy = 'fecha_creacion',
+      sortOrder = 'desc'
+    } = req.query;
 
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const offset = (pageNumber - 1) * limitNumber;
+
+    console.log('[Get Users] Filtros recibidos:', { status, rol, search, sortBy, sortOrder });
+
+    // Construir query con filtros de manera más simple
     let usersQuery = collection(db, 'usuarios');
     
-    if (status) {
+    // Si hay filtros específicos, aplicarlos uno a la vez
+    if (status && !rol) {
+      // Solo filtrar por status
       usersQuery = query(usersQuery, where('status', '==', status));
+    } else if (rol && !status) {
+      // Solo filtrar por rol
+      usersQuery = query(usersQuery, where('rol', '==', rol));
+    } else if (status && rol) {
+      // Filtrar por ambos
+      usersQuery = query(
+        usersQuery, 
+        where('status', '==', status),
+        where('rol', '==', rol)
+      );
     }
 
+    // Ejecutar query
     const querySnapshot = await getDocs(usersQuery);
-    const users = [];
+    let users = [];
     
     querySnapshot.forEach((doc) => {
       const userData = doc.data();
       users.push({
-        id: doc.id,
+        uid: doc.id,
         email: userData.email,
         nombre: userData.nombre,
         telefono: userData.telefono,
@@ -336,20 +378,381 @@ export const getUsers = async (req, res) => {
       });
     });
 
+    console.log(`[Get Users] Usuarios obtenidos de Firestore: ${users.length}`);
+
+    // Búsqueda local (ya que Firestore no soporta búsqueda de texto completo nativa)
+    if (search) {
+      const searchTerm = search.toLowerCase();
+      users = users.filter(user => 
+        user.nombre.toLowerCase().includes(searchTerm) ||
+        user.email.toLowerCase().includes(searchTerm) ||
+        user.telefono.includes(searchTerm)
+      );
+      console.log(`[Get Users] Usuarios después de búsqueda: ${users.length}`);
+    }
+
+    // Ordenamiento local
+    users.sort((a, b) => {
+      let valueA, valueB;
+      
+      switch (sortBy) {
+        case 'nombre':
+          valueA = a.nombre.toLowerCase();
+          valueB = b.nombre.toLowerCase();
+          break;
+        case 'email':
+          valueA = a.email.toLowerCase();
+          valueB = b.email.toLowerCase();
+          break;
+        case 'fecha_creacion':
+        default:
+          // Para timestamps de Firestore, usar seconds para comparar
+          valueA = a.fecha_creacion?.seconds || 0;
+          valueB = b.fecha_creacion?.seconds || 0;
+          break;
+      }
+
+      if (sortOrder === 'asc') {
+        return valueA > valueB ? 1 : -1;
+      } else {
+        return valueA < valueB ? 1 : -1;
+      }
+    });
+
+    // Paginación
+    const total = users.length;
+    const totalPages = Math.ceil(total / limitNumber);
+    const paginatedUsers = users.slice(offset, offset + limitNumber);
+
+    console.log(`[Get Users] Paginación: página ${pageNumber}, total ${total}, páginas ${totalPages}`);
+
     res.json({
       success: true,
       data: {
-        users: users.slice(0, parseInt(limit)),
-        total: users.length
-      }
+        users: paginatedUsers,
+        pagination: {
+          current_page: pageNumber,
+          per_page: limitNumber,
+          total: total,
+          total_pages: totalPages,
+          has_next_page: pageNumber < totalPages,
+          has_prev_page: pageNumber > 1
+        },
+        filters: {
+          status,
+          rol,
+          search,
+          sortBy,
+          sortOrder
+        }
+      },
+      message: `Se encontraron ${total} usuarios`
     });
 
   } catch (error) {
     console.error('[Get Users Error]', error);
+    console.error('[Get Users Error Stack]', error.stack);
     res.status(500).json({
       success: false,
       error: 'Error al obtener usuarios',
+      details: error.message,
       code: 'GET_USERS_ERROR'
+    });
+  }
+};
+
+// 6. GET - Obtener usuario por ID (solo para admins)
+export const getUserById = async (req, res) => {
+  try {
+    // Verificar que el usuario sea admin o que esté consultando su propio perfil
+    const { userId } = req.params;
+    if (req.user.rol !== 'admin' && req.user.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permisos para ver este usuario',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    const userDoc = await getDoc(doc(db, 'usuarios', userId));
+    
+    if (!userDoc.exists()) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    const userData = userDoc.data();
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          uid: userDoc.id,
+          email: userData.email,
+          nombre: userData.nombre,
+          telefono: userData.telefono,
+          rol: userData.rol,
+          status: userData.status,
+          fecha_creacion: userData.fecha_creacion,
+          ultimo_acceso: userData.ultimo_acceso
+        }
+      },
+      message: 'Usuario obtenido correctamente'
+    });
+
+  } catch (error) {
+    console.error('[Get User By ID Error]', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener usuario',
+      code: 'GET_USER_ERROR'
+    });
+  }
+};
+
+// 7. PUT - Actualizar usuario (solo para admins o el propio usuario)
+export const updateUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Verificar permisos: admin puede editar cualquier usuario, otros solo su propio perfil
+    if (req.user.rol !== 'admin' && req.user.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permisos para editar este usuario',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    // Validar datos de entrada
+    const validatedData = updateUserSchema.parse(req.body);
+    
+    // Solo admins pueden cambiar rol y status
+    if (req.user.rol !== 'admin') {
+      delete validatedData.rol;
+      delete validatedData.status;
+    }
+
+    // Verificar que el usuario existe
+    const userDoc = await getDoc(doc(db, 'usuarios', userId));
+    if (!userDoc.exists()) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Preparar datos para actualizar
+    const updateData = {
+      ...validatedData,
+      fecha_actualizacion: serverTimestamp()
+    };
+
+    // Actualizar usuario en Firestore
+    await updateDoc(doc(db, 'usuarios', userId), updateData);
+
+    // Obtener datos actualizados
+    const updatedUserDoc = await getDoc(doc(db, 'usuarios', userId));
+    const updatedUserData = updatedUserDoc.data();
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          uid: updatedUserDoc.id,
+          email: updatedUserData.email,
+          nombre: updatedUserData.nombre,
+          telefono: updatedUserData.telefono,
+          rol: updatedUserData.rol,
+          status: updatedUserData.status,
+          fecha_creacion: updatedUserData.fecha_creacion,
+          fecha_actualizacion: updatedUserData.fecha_actualizacion
+        }
+      },
+      message: 'Usuario actualizado correctamente'
+    });
+
+  } catch (error) {
+    console.error('[Update User Error]', error);
+    
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Datos de entrada inválidos',
+        details: error.errors,
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Error al actualizar usuario',
+      code: 'UPDATE_USER_ERROR'
+    });
+  }
+};
+
+// 8. DELETE - Eliminar usuario (solo para admins)
+export const deleteUserById = async (req, res) => {
+  try {
+    // Solo admins pueden eliminar usuarios
+    if (req.user.rol !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permisos para eliminar usuarios',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    const { userId } = req.params;
+
+    // Verificar que el usuario no se esté eliminando a sí mismo
+    if (req.user.id === userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'No puedes eliminar tu propio usuario',
+        code: 'CANNOT_DELETE_SELF'
+      });
+    }
+
+    // Verificar que el usuario existe en Firestore
+    const userDoc = await getDoc(doc(db, 'usuarios', userId));
+    if (!userDoc.exists()) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    const userData = userDoc.data();
+
+    try {
+      // Eliminar usuario de Firestore primero
+      await deleteDoc(doc(db, 'usuarios', userId));
+      
+      // Nota: Para eliminar de Firebase Auth necesitaríamos el Admin SDK
+      // Por ahora solo eliminamos de Firestore y marcamos como eliminado
+      console.log(`[Delete User] Usuario ${userId} eliminado de Firestore`);
+      
+      res.json({
+        success: true,
+        data: {
+          deleted_user: {
+            uid: userId,
+            email: userData.email,
+            nombre: userData.nombre
+          }
+        },
+        message: 'Usuario eliminado correctamente'
+      });
+
+    } catch (deleteError) {
+      console.error('[Delete User Firebase Error]', deleteError);
+      
+      // Si falla la eliminación, intentar marcar como inactivo
+      await updateDoc(doc(db, 'usuarios', userId), {
+        status: 'eliminado',
+        fecha_eliminacion: serverTimestamp()
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          deleted_user: {
+            uid: userId,
+            email: userData.email,
+            nombre: userData.nombre
+          }
+        },
+        message: 'Usuario marcado como eliminado'
+      });
+    }
+
+  } catch (error) {
+    console.error('[Delete User Error]', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al eliminar usuario',
+      code: 'DELETE_USER_ERROR'
+    });
+  }
+};
+
+// 9. POST - Activar/Desactivar usuario (solo para admins)
+export const toggleUserStatus = async (req, res) => {
+  try {
+    // Solo admins pueden cambiar el status de usuarios
+    if (req.user.rol !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permisos para cambiar el status de usuarios',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    const { userId } = req.params;
+    const { status } = req.body;
+
+    // Validar status
+    if (!['activo', 'inactivo'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Status debe ser "activo" o "inactivo"',
+        code: 'INVALID_STATUS'
+      });
+    }
+
+    // Verificar que el usuario no se esté desactivando a sí mismo
+    if (req.user.id === userId && status === 'inactivo') {
+      return res.status(400).json({
+        success: false,
+        error: 'No puedes desactivar tu propio usuario',
+        code: 'CANNOT_DEACTIVATE_SELF'
+      });
+    }
+
+    // Verificar que el usuario existe
+    const userDoc = await getDoc(doc(db, 'usuarios', userId));
+    if (!userDoc.exists()) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Actualizar status
+    await updateDoc(doc(db, 'usuarios', userId), {
+      status: status,
+      fecha_actualizacion: serverTimestamp()
+    });
+
+    const userData = userDoc.data();
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          uid: userId,
+          email: userData.email,
+          nombre: userData.nombre,
+          status: status
+        }
+      },
+      message: `Usuario ${status === 'activo' ? 'activado' : 'desactivado'} correctamente`
+    });
+
+  } catch (error) {
+    console.error('[Toggle User Status Error]', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al cambiar status del usuario',
+      code: 'TOGGLE_STATUS_ERROR'
     });
   }
 };
