@@ -32,7 +32,7 @@ const registerSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
   nombre: z.string().min(2, 'Nombre requerido'),
-  telefono: z.string().default('sin telefono').transform((val) => {
+  telefono: z.string().default('').transform((val) => {
     // Si está vacío o es undefined, usar "sin telefono"
     if (!val || val.trim() === '') {
       return 'sin telefono';
@@ -41,11 +41,16 @@ const registerSchema = z.object({
     if (val === 'sin telefono') {
       return val;
     }
-    // Si tiene contenido, validar que sean 10 dígitos
-    if (!/^\d{10}$/.test(val)) {
-      throw new Error('El teléfono debe tener exactamente 10 dígitos numéricos');
-    }
     return val;
+  }).refine((val) => {
+    // Si es "sin telefono", es válido
+    if (val === 'sin telefono') {
+      return true;
+    }
+    // Si tiene contenido, debe ser exactamente 10 dígitos
+    return /^\d{10}$/.test(val);
+  }, {
+    message: 'El teléfono debe tener exactamente 10 dígitos numéricos o estar vacío'
   }),
   rol: z.enum(['admin', 'vendedor']).default('vendedor')
 });
@@ -70,11 +75,20 @@ const updateUserSchema = z.object({
     if (val === 'sin telefono') {
       return val;
     }
-    // Si tiene contenido, validar que sean 10 dígitos
-    if (!/^\d{10}$/.test(val)) {
-      throw new Error('El teléfono debe tener exactamente 10 dígitos numéricos');
-    }
     return val;
+  }).refine((val) => {
+    // Si es undefined, es válido (no se actualiza)
+    if (val === undefined) {
+      return true;
+    }
+    // Si es "sin telefono", es válido
+    if (val === 'sin telefono') {
+      return true;
+    }
+    // Si tiene contenido, debe ser exactamente 10 dígitos
+    return /^\d{10}$/.test(val);
+  }, {
+    message: 'El teléfono debe tener exactamente 10 dígitos numéricos o estar vacío'
   }),
   rol: z.enum(['admin', 'vendedor']).optional(),
   status: z.enum(['activo', 'inactivo']).optional()
