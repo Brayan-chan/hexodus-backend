@@ -7,12 +7,13 @@ import authRoutes from './routes/authRoutes.js';
 import productsRoutes from './routes/productsRoutes.js';
 import salesRoutes from './routes/salesRoutes.js';
 import membershipsRoutes from './routes/membershipsRoutes.js';
+import sociosRoutes from './routes/sociosRoutes.js';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3300;
 
 // Middleware
 app.use(cors({
@@ -47,6 +48,7 @@ app.use('/auth', authRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/memberships', membershipsRoutes);
+app.use('/api/socios', sociosRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -66,6 +68,7 @@ app.listen(PORT, () => {
   console.log(`📼 Products endpoints: http://localhost:${PORT}/api/products/`);
   console.log(`🛒 Sales endpoints: http://localhost:${PORT}/api/sales/`);
   console.log(`🎫 Memberships endpoints: http://localhost:${PORT}/api/memberships/`);
+  console.log(`👥 Socios endpoints: http://localhost:${PORT}/api/socios/`);
 });
 
 export default app;
