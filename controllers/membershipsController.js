@@ -691,3 +691,81 @@ export const disableMembership = async (req, res) => {
     });
   }
 };
+
+// 14. GET - Filtrar membresías con múltiples criterios
+export const filterMemberships = async (req, res) => {
+  try {
+    const { status, tipo, page = 1, limit = 10 } = req.query;
+    
+    console.log('[Filter Memberships] Filtros:', { status, tipo, page, limit });
+
+    const membershipsRef = collection(db, 'membresias');
+    let constraints = [where('id_usuario', '==', req.user.id)];
+    
+    // Agregar filtros según los parámetros recibidos
+    if (status) {
+      constraints.push(where('status_membresia', '==', status));
+    }
+    if (tipo) {
+      constraints.push(where('tipo_membresia', '==', tipo));
+    }
+    
+    // Aplicar orden
+    constraints.push(orderBy('fecha_creacion', 'desc'));
+    
+    let membershipsQuery = query(membershipsRef, ...constraints);
+    
+    const querySnapshot = await getDocs(membershipsQuery);
+    let membresias = [];
+    
+    querySnapshot.forEach((doc) => {
+      const membershipData = doc.data();
+      membresias.push({
+        id: doc.id,
+        ...membershipData
+      });
+    });
+
+    // Aplicar paginación local
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = startIndex + limitNum;
+    
+    const paginatedMembresias = membresias.slice(startIndex, endIndex);
+    const totalPages = Math.ceil(membresias.length / limitNum);
+    
+    const pagination = {
+      current_page: pageNum,
+      per_page: limitNum,
+      total: membresias.length,
+      total_pages: totalPages,
+      has_next_page: pageNum < totalPages,
+      has_prev_page: pageNum > 1
+    };
+
+    console.log(`[Filter Memberships] Membresías filtradas: ${membresias.length}`);
+
+    res.json({
+      success: true,
+      data: {
+        membresias: paginatedMembresias,
+        pagination,
+        total: membresias.length,
+        filters: {
+          status,
+          tipo
+        }
+      },
+      message: `Se encontraron ${membresias.length} membresías`
+    });
+
+  } catch (error) {
+    console.error('[Filter Memberships Error]', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al filtrar membresías',
+      code: 'FILTER_MEMBERSHIPS_ERROR'
+    });
+  }
+};
