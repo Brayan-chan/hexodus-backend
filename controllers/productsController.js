@@ -24,7 +24,9 @@ const createProductSchema = z.object({
   descripcion: z.string().optional().default(''),
   costo: z.number().positive('El costo debe ser positivo'),
   precio: z.number().positive('El precio debe ser positivo'),
-  status_producto: z.enum(['en stock', 'agotado']).default('en stock')
+  cantidad_stock: z.number().int().min(0, 'La cantidad en stock debe ser positiva o cero').default(0),
+  stock_minimo: z.number().int().min(0, 'El stock mínimo debe ser positivo o cero').default(5)
+  // status_producto se calcula automáticamente basado en cantidad_stock
 });
 
 const updateProductSchema = createProductSchema.partial();
@@ -38,8 +40,21 @@ const searchProductSchema = z.object({
 const filterProductSchema = z.object({
   status: z.enum(['en stock', 'agotado']).optional(),
   precio_min: z.number().positive().optional(),
-  precio_max: z.number().positive().optional()
+  precio_max: z.number().positive().optional(),
+  stock_min: z.number().int().min(0).optional(),
+  stock_max: z.number().int().min(0).optional()
 });
+
+// Helper function para calcular status basado en stock
+const calculateProductStatus = (cantidadStock, stockMinimo = 5) => {
+  if (cantidadStock <= 0) {
+    return 'agotado';
+  } else if (cantidadStock <= stockMinimo) {
+    return 'stock bajo';
+  } else {
+    return 'en stock';
+  }
+};
 
 // Helper function para generar UUID simple
 const generateId = () => {
@@ -67,6 +82,9 @@ export const createProduct = async (req, res) => {
     }
 
     // Crear el producto
+    // Calcular status automáticamente basado en stock
+    const statusProducto = calculateProductStatus(data.cantidad_stock, data.stock_minimo);
+
     const productData = {
       uuid_producto: generateId(),
       codigo_producto: data.codigo_producto,
@@ -74,7 +92,9 @@ export const createProduct = async (req, res) => {
       descripcion: data.descripcion,
       costo: data.costo,
       precio: data.precio,
-      status_producto: data.status_producto,
+      cantidad_stock: data.cantidad_stock,
+      stock_minimo: data.stock_minimo,
+      status_producto: statusProducto,
       fecha_creacion: serverTimestamp(),
       id_usuario: req.user.id
     };
@@ -159,11 +179,17 @@ export const updateProduct = async (req, res) => {
       }
     }
 
+    // Calcular status automáticamente si se actualiza el stock
+    let updateData = { ...data };
+    if (data.cantidad_stock !== undefined || data.stock_minimo !== undefined) {
+      const currentProduct = productDoc.data();
+      const newCantidadStock = data.cantidad_stock !== undefined ? data.cantidad_stock : currentProduct.cantidad_stock;
+      const newStockMinimo = data.stock_minimo !== undefined ? data.stock_minimo : currentProduct.stock_minimo;
+      updateData.status_producto = calculateProductStatus(newCantidadStock, newStockMinimo);
+    }
+
     // Actualizar producto
-    const updateData = {
-      ...data,
-      fecha_actualizacion: serverTimestamp()
-    };
+    updateData.fecha_actualizacion = serverTimestamp();
 
     await updateDoc(doc(db, 'productos', productId), updateData);
 
@@ -254,6 +280,43 @@ export const deleteProduct = async (req, res) => {
       error: 'Error al eliminar producto',
       code: 'DELETE_PRODUCT_ERROR'
     });
+  }
+};
+
+// Helper function para actualizar stock de producto
+export const updateProductStock = async (productId, cantidadVendida, transaction = null) => {
+  try {
+    const productRef = doc(db, 'productos', productId);
+    const productDoc = await getDoc(productRef);
+    
+    if (!productDoc.exists()) {
+      throw new Error('Producto no encontrado');
+    }
+
+    const productData = productDoc.data();
+    const nuevaCantidad = Math.max(0, (productData.cantidad_stock || 0) - cantidadVendida);
+    const nuevoStatus = calculateProductStatus(nuevaCantidad, productData.stock_minimo || 5);
+    
+    const updateData = {
+      cantidad_stock: nuevaCantidad,
+      status_producto: nuevoStatus,
+      fecha_actualizacion: serverTimestamp()
+    };
+
+    if (transaction) {
+      await updateDoc(productRef, updateData);
+    } else {
+      await updateDoc(productRef, updateData);
+    }
+
+    return {
+      id: productId,
+      cantidad_anterior: productData.cantidad_stock,
+      cantidad_nueva: nuevaCantidad,
+      status_nuevo: nuevoStatus
+    };
+  } catch (error) {
+    throw error;
   }
 };
 
