@@ -344,10 +344,62 @@ export const getMemberships = async (req, res) => {
   }
 };
 
+// 4.1. GET - Obtener detalles de una membresía específica
+export const getMembershipById = async (req, res) => {
+  try {
+    const { membershipId } = req.params;
+
+    console.log('[Get Membership By ID] ID:', membershipId);
+
+    const membershipRef = doc(db, 'membresias', membershipId);
+    const membershipDoc = await getDoc(membershipRef);
+
+    if (!membershipDoc.exists()) {
+      return res.status(404).json({
+        success: false,
+        error: 'Membresía no encontrada',
+        code: 'MEMBERSHIP_NOT_FOUND'
+      });
+    }
+
+    const membershipData = membershipDoc.data();
+
+    // Verificar que la membresía pertenece al usuario
+    if (membershipData.id_usuario !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permiso para ver esta membresía',
+        code: 'MEMBERSHIP_ACCESS_DENIED'
+      });
+    }
+
+    console.log('[Get Membership By ID] Membresía encontrada:', membershipData.nombre_membresia);
+
+    res.json({
+      success: true,
+      data: {
+        membresia: {
+          id: membershipDoc.id,
+          ...membershipData
+        }
+      },
+      message: 'Detalles de membresía obtenidos correctamente'
+    });
+
+  } catch (error) {
+    console.error('[Get Membership By ID Error]', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener detalles de membresía',
+      code: 'GET_MEMBERSHIP_BY_ID_ERROR'
+    });
+  }
+};
+
 // 5. GET - Buscar membresías
 export const searchMemberships = async (req, res) => {
   try {
-    const { search } = req.query;
+    const { q: search } = req.query;
     
     console.log('[Search Memberships] Parámetros:', { search });
 
@@ -417,7 +469,7 @@ export const searchMemberships = async (req, res) => {
 // 6. GET - Filtrar membresías por status (activo, inactivo)
 export const filterMembershipsByStatus = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status_membresia: status } = req.query;
     
     console.log('[Filter Memberships By Status] Filtros:', { status });
 
@@ -447,7 +499,7 @@ export const filterMembershipsByStatus = async (req, res) => {
         membresias: membresias,
         total: membresias.length,
         filters: {
-          status
+          status_membresia: status
         }
       },
       message: `Se encontraron ${membresias.length} membresías`
@@ -466,7 +518,7 @@ export const filterMembershipsByStatus = async (req, res) => {
 // 7. GET - Filtrar membresías por tipo (mensual, semanal, etc)
 export const filterMembershipsByType = async (req, res) => {
   try {
-    const { tipo, precio_min, precio_max } = req.query;
+    const { tipo_membresia: tipo, precio_min, precio_max } = req.query;
     
     console.log('[Filter Memberships By Type] Filtros:', { tipo, precio_min, precio_max });
 
@@ -506,7 +558,7 @@ export const filterMembershipsByType = async (req, res) => {
         membresias: membresias,
         total: membresias.length,
         filters: {
-          tipo,
+          tipo_membresia: tipo,
           precio_min,
           precio_max
         }
