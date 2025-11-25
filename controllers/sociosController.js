@@ -314,6 +314,75 @@ export const updateSocio = async (req, res) => {
 
     await updateDoc(doc(db, 'socios', id), socioUpdateData);
 
+    let membresiaCreada = null;
+
+    // Si se proporcionan datos de membresía, crear una nueva membresía
+    if (tipo_membresia && fecha_inicio) {
+      try {
+        // Obtener información de la membresía
+        const membershipQuery = query(
+          collection(db, 'membresias'),
+          where('uuid_membresia', '==', tipo_membresia)
+        );
+        const membershipSnapshot = await getDocs(membershipQuery);
+        
+        if (!membershipSnapshot.empty) {
+          const membershipDoc = membershipSnapshot.docs[0];
+          const membershipInfo = membershipDoc.data();
+
+          // Calcular fecha de fin basada en la duración de la membresía
+          const fechaInicio = new Date(fecha_inicio);
+          let fechaFin = new Date(fechaInicio);
+          
+          // Agregar tiempo según el tipo de membresía
+          if (membershipInfo.meses > 0) {
+            fechaFin.setMonth(fechaFin.getMonth() + membershipInfo.meses);
+          }
+          if (membershipInfo.semanas > 0) {
+            fechaFin.setDate(fechaFin.getDate() + (membershipInfo.semanas * 7));
+          }
+          if (membershipInfo.dias > 0) {
+            fechaFin.setDate(fechaFin.getDate() + membershipInfo.dias);
+          }
+
+          const nuevaMembresia = {
+            uuid_socio: id,
+            uuid_membresia: tipo_membresia,
+            observaciones: observaciones_membresia || '',
+            fecha_inicio: Timestamp.fromDate(fechaInicio),
+            fecha_fin: Timestamp.fromDate(fechaFin),
+            fecha_creacion: Timestamp.now(),
+            status_membresia_socio: 'no_pagado'
+          };
+
+          const membresiaRef = await addDoc(collection(db, 'membresia_socio'), nuevaMembresia);
+
+          // Actualizar el socio con la referencia a la membresía activa
+          await updateDoc(doc(db, 'socios', id), {
+            uuid_membresia_socio: membresiaRef.id
+          });
+
+          membresiaCreada = {
+            id: membresiaRef.id,
+            ...nuevaMembresia,
+            fecha_inicio: fechaInicio.toISOString(),
+            fecha_fin: fechaFin.toISOString(),
+            fecha_creacion: new Date().toISOString(),
+            informacion_membresia: {
+              nombre_membresia: membershipInfo.nombre_membresia,
+              precio: membershipInfo.precio,
+              tipo_membresia: membershipInfo.tipo_membresia,
+              meses: membershipInfo.meses,
+              semanas: membershipInfo.semanas,
+              dias: membershipInfo.dias
+            }
+          };
+        }
+      } catch (membresiaError) {
+        console.warn('Error creando membresía durante actualización:', membresiaError.message);
+      }
+    }
+
     // Obtener socio actualizado
     const socioActualizado = await getDoc(doc(db, 'socios', id));
     
@@ -332,10 +401,20 @@ export const updateSocio = async (req, res) => {
       socioData.fecha_creacion = socioData.fecha_creacion.toDate().toISOString();
     }
 
-    res.json({
+    const response = {
       success: true,
       data: { socio: socioData }
-    });
+    };
+
+    // Incluir membresía creada si existe
+    if (membresiaCreada) {
+      response.data.membresia = membresiaCreada;
+      response.message = 'Socio actualizado y membresía asignada correctamente';
+    } else {
+      response.message = 'Socio actualizado correctamente';
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('[Update Socio Error]', error.message);
     res.status(400).json({
