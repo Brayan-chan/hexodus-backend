@@ -361,6 +361,8 @@ export const getProductById = async (req, res) => {
           descripcion: productData.descripcion,
           costo: productData.costo,
           precio: productData.precio,
+          cantidad_stock: productData.cantidad_stock || 0,
+          stock_minimo: productData.stock_minimo || 0,
           status_producto: productData.status_producto,
           fecha_creacion: productData.fecha_creacion,
           fecha_actualizacion: productData.fecha_actualizacion,
@@ -415,6 +417,8 @@ export const getProducts = async (req, res) => {
         descripcion: productData.descripcion,
         costo: productData.costo,
         precio: productData.precio,
+        cantidad_stock: productData.cantidad_stock || 0,
+        stock_minimo: productData.stock_minimo || 0,
         status_producto: productData.status_producto,
         fecha_creacion: productData.fecha_creacion,
         fecha_actualizacion: productData.fecha_actualizacion
@@ -472,7 +476,18 @@ export const searchProducts = async (req, res) => {
       const productData = doc.data();
       productos.push({
         id: doc.id,
-        ...productData
+        uuid_producto: productData.uuid_producto,
+        codigo_producto: productData.codigo_producto,
+        nombre_producto: productData.nombre_producto,
+        descripcion: productData.descripcion,
+        costo: productData.costo,
+        precio: productData.precio,
+        cantidad_stock: productData.cantidad_stock || 0,
+        stock_minimo: productData.stock_minimo || 0,
+        status_producto: productData.status_producto,
+        fecha_creacion: productData.fecha_creacion,
+        fecha_actualizacion: productData.fecha_actualizacion,
+        id_usuario: productData.id_usuario
       });
     });
 
@@ -564,7 +579,18 @@ export const filterProducts = async (req, res) => {
       const productData = doc.data();
       productos.push({
         id: doc.id,
-        ...productData
+        uuid_producto: productData.uuid_producto,
+        codigo_producto: productData.codigo_producto,
+        nombre_producto: productData.nombre_producto,
+        descripcion: productData.descripcion,
+        costo: productData.costo,
+        precio: productData.precio,
+        cantidad_stock: productData.cantidad_stock || 0,
+        stock_minimo: productData.stock_minimo || 0,
+        status_producto: productData.status_producto,
+        fecha_creacion: productData.fecha_creacion,
+        fecha_actualizacion: productData.fecha_actualizacion,
+        id_usuario: productData.id_usuario
       });
     });
 
