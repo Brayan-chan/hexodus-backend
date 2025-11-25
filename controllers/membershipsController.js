@@ -469,7 +469,7 @@ export const searchMemberships = async (req, res) => {
 // 6. GET - Filtrar membresías por status (activo, inactivo)
 export const filterMembershipsByStatus = async (req, res) => {
   try {
-    const { status_membresia: status } = req.query;
+    const { status } = req.query; // Cambiado de status_membresia a status
     
     console.log('[Filter Memberships By Status] Filtros:', { status });
 
@@ -518,7 +518,7 @@ export const filterMembershipsByStatus = async (req, res) => {
 // 7. GET - Filtrar membresías por tipo (mensual, semanal, etc)
 export const filterMembershipsByType = async (req, res) => {
   try {
-    const { tipo_membresia: tipo, precio_min, precio_max } = req.query;
+    const { tipo, precio_min, precio_max } = req.query; // Cambiado de tipo_membresia a tipo
     
     console.log('[Filter Memberships By Type] Filtros:', { tipo, precio_min, precio_max });
 
