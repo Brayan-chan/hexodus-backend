@@ -1,6 +1,6 @@
 # Hexodus Backend API 🚀
 
-> **Sistema de backend completo para gestión de gimnasios con inventario inteligente, ventas automatizadas y control de usuarios avanzado**
+> **Sistema de backend completo para gestión de gimnasios con inventario inteligente, ventas automatizadas, control de usuarios avanzado y gestión integral de membresías**
 
 ## 🎯 Características Principales
 
@@ -27,14 +27,31 @@
 - **Ventas multi-producto** en una sola transacción
 - **Descuento automático de inventario** al crear ventas
 - **Validación de stock disponible** antes de confirmar
-- **Estados de venta**: "completada", "pendiente", "cancelada"
+- **Estados de venta**: "exitosa", "cancelada"
 - **Cálculo automático** de totales y subtotales
 - **Búsqueda y filtrado avanzado** por:
   - Fecha de venta
   - Estado de venta
-  - Cliente
-  - Rango de totales
   - Productos vendidos
+  - Rango de totales
+
+### ✅ **Sistema de Membresías Integral**
+- **CRUD completo de membresías** con Firebase Firestore
+- **Tipos de membresías configurables**: mensual, semanal, anual, días
+- **Control de duración flexible** con campos:
+  - `meses`: Duración en meses
+  - `semanas`: Duración en semanas  
+  - `dias`: Duración en días
+- **Estados dinámicos**: activo/inactivo
+- **Gestión de precios** por tipo de membresía
+- **Búsqueda y filtrado avanzado** por:
+  - Nombre de membresía
+  - Tipo de membresía
+  - Estado (activo/inactivo)
+  - Rango de precios
+- **Paginación completa** con metadatos
+- **Habilitación/deshabilitación** individual
+- **UUIDs únicos** auto-generados
 
 ### ✅ **Seguridad y Validación**
 - Autenticación JWT con Firebase
@@ -42,6 +59,7 @@
 - Permisos basados en roles
 - Protección CORS configurada
 - Validación de stock antes de operaciones
+- Validación de nombres únicos en membresías
 
 ## 🛠️ Stack Tecnológico
 
@@ -281,6 +299,120 @@ curl -X DELETE "http://localhost:3300/api/sales/SALE_ID" \
 
 ---
 
+### 🎫 **Sistema de Membresías Integral**
+
+#### **Estructura de Membresía**
+```json
+{
+  "id": "firebase_document_id",
+  "uuid_membresia": "memb_xxxxx",
+  "nombre_membresia": "Membresía Mensual Básica",
+  "precio": 50.00,
+  "meses": 1,
+  "semanas": 0,
+  "dias": 0,
+  "tipo_membresia": "mensual", // "mensual", "semanal", "anual", "dias"
+  "status_membresia": "activo", // "activo", "inactivo"
+  "fecha_creacion": "firebase_timestamp",
+  "fecha_actualizacion": "firebase_timestamp",
+  "id_usuario": "user_firebase_id"
+}
+```
+
+#### **POST /api/memberships** - Crear nueva membresía
+```bash
+curl -X POST "https://hexodus-backend.vercel.app/api/memberships" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre_membresia": "Membresía Mensual Básica",
+    "precio": 50.00,
+    "meses": 1,
+    "semanas": 0,
+    "dias": 0,
+    "tipo_membresia": "mensual",
+    "status_membresia": "activo"
+  }'
+```
+
+#### **GET /api/memberships** - Listar membresías con paginación
+```bash
+curl -X GET "https://hexodus-backend.vercel.app/api/memberships?page=1&limit=10" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### **GET /api/memberships/search** - Buscar membresías
+```bash
+curl -X GET "https://hexodus-backend.vercel.app/api/memberships/search?search=mensual" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### **GET /api/memberships/filter/status** - Filtrar por estado
+```bash
+# Filtrar membresías activas
+curl -X GET "https://hexodus-backend.vercel.app/api/memberships/filter/status?status=activo" \
+  -H "Authorization: Bearer <token>"
+
+# Filtrar membresías inactivas
+curl -X GET "https://hexodus-backend.vercel.app/api/memberships/filter/status?status=inactivo" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### **GET /api/memberships/filter/type** - Filtrar por tipo y precio
+```bash
+# Filtrar por tipo
+curl -X GET "https://hexodus-backend.vercel.app/api/memberships/filter/type?tipo=mensual" \
+  -H "Authorization: Bearer <token>"
+
+# Filtrar por rango de precio
+curl -X GET "https://hexodus-backend.vercel.app/api/memberships/filter/type?precio_min=25&precio_max=100" \
+  -H "Authorization: Bearer <token>"
+
+# Filtrar por tipo y precio combinado
+curl -X GET "https://hexodus-backend.vercel.app/api/memberships/filter/type?tipo=semanal&precio_min=10&precio_max=20" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### **PUT /api/memberships/:membershipId** - Editar membresía
+```bash
+curl -X PUT "https://hexodus-backend.vercel.app/api/memberships/MEMBERSHIP_ID" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre_membresia": "Membresía Mensual Premium",
+    "precio": 75.00
+  }'
+```
+
+#### **PUT /api/memberships/:membershipId/enable** - Habilitar membresía
+```bash
+curl -X PUT "https://hexodus-backend.vercel.app/api/memberships/MEMBERSHIP_ID/enable" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### **PUT /api/memberships/:membershipId/disable** - Deshabilitar membresía
+```bash
+curl -X PUT "https://hexodus-backend.vercel.app/api/memberships/MEMBERSHIP_ID/disable" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### **DELETE /api/memberships/:membershipId** - Eliminar membresía
+```bash
+curl -X DELETE "https://hexodus-backend.vercel.app/api/memberships/MEMBERSHIP_ID" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Funcionalidades automáticas del sistema de membresías:**
+- ✅ Generación automática de UUIDs únicos (`memb_xxxxx`)
+- ✅ Validación de nombres únicos por usuario
+- ✅ Timestamps automáticos de creación y actualización
+- ✅ Búsqueda normalizada sin acentos
+- ✅ Filtros combinables por tipo, estado y precio
+- ✅ Paginación completa con metadatos
+- ✅ Control de permisos por usuario
+
+---
+
 ### 👥 **Gestión de Usuarios**
 
 #### **GET /auth/users** - Listar usuarios (solo admins)
@@ -307,14 +439,16 @@ hexodus-backend/
 ├── 📁 controllers/
 │   ├── authController.js       # Gestión de usuarios y auth
 │   ├── productsController.js   # Gestión de productos con inventario
-│   └── salesController.js     # Sistema de ventas automatizado
+│   ├── salesController.js     # Sistema de ventas automatizado
+│   └── membershipsController.js # Gestión integral de membresías
 ├── 📁 middleware/
 │   ├── auth.js                 # Middleware de autenticación JWT
 │   └── validation.js           # Middleware de validación Zod
 ├── 📁 routes/
 │   ├── authRoutes.js          # Rutas de autenticación y usuarios
 │   ├── productsRoutes.js      # Rutas de productos e inventario
-│   └── salesRoutes.js         # Rutas de ventas
+│   ├── salesRoutes.js         # Rutas de ventas
+│   └── membershipsRoutes.js   # Rutas de membresías
 ├── index.js                   # Punto de entrada principal
 ├── package.json               # Dependencias y scripts
 ├── vercel.json               # Configuración de deployment
@@ -377,6 +511,23 @@ hexodus-backend/
   vendedor_id: "user_firebase_id",
   fecha_creacion: timestamp,
   fecha_actualizacion: timestamp
+}
+```
+
+### **Colección: membresias** (Sistema integral)
+```javascript
+{
+  uuid_membresia: "memb_xxxxx",        // ✅ UUID único auto-generado
+  nombre_membresia: "Membresía Mensual Básica",
+  precio: 50.00,
+  meses: 1,                           // Duración en meses
+  semanas: 0,                         // Duración en semanas
+  dias: 0,                           // Duración en días
+  tipo_membresia: "mensual",         // "mensual" | "semanal" | "anual" | "dias"
+  status_membresia: "activo",        // "activo" | "inactivo"
+  id_usuario: "user_firebase_id",
+  fecha_creacion: timestamp,
+  fecha_actualizacion: timestamp     // Opcional, solo en actualizaciones
 }
 ```
 
