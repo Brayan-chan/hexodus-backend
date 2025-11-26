@@ -8,6 +8,7 @@ import productsRoutes from './routes/productsRoutes.js';
 import salesRoutes from './routes/salesRoutes.js';
 import membershipsRoutes from './routes/membershipsRoutes.js';
 import sociosRoutes from './routes/sociosRoutes.js';
+import reportsRoutes from './routes/reportsRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -49,6 +50,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/memberships', membershipsRoutes);
 app.use('/api/socios', sociosRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -69,6 +71,7 @@ app.listen(PORT, () => {
   console.log(`🛒 Sales endpoints: http://localhost:${PORT}/api/sales/`);
   console.log(`🎫 Memberships endpoints: http://localhost:${PORT}/api/memberships/`);
   console.log(`👥 Socios endpoints: http://localhost:${PORT}/api/socios/`);
+  console.log(`📊 Reports endpoints: http://localhost:${PORT}/api/reports/`);
 });
 
 export default app;
